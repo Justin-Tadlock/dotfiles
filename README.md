@@ -2,32 +2,13 @@
 
 This project is meant to contain the specific configurations for applications that can be configured through the home directory of the user.
 
-It will contain a script that will allow for applying the configs for specific applications so that you don't have to have an "all or nothing" clone and manual migration of configs.
+It will contain a script that will allow for applying the configs for the applications where applicable.
 
-## Getting a list of apps that can be configured
+For configs that differ from other OS distributions (such as arch/debian), be sure to prefix the config file with the OS ID that can be found on the `ID_LIKE=` line of the `/etc/os-release` file.
 
-Each app will be put within its own directory within the repo, so a simple `ls` will give you a list of all the apps that the `app-config` script will be able to configure.
+For example, the vimrc configs that differ from debian to arch will look like this:
 
-## Running the app-config script
+- `scriptDir/vimrc/arch-vimrc`
+- `scriptDir/vimrc/debian-vimrc`
 
-When cloning to a new system, you will have to change the `app-config` file to be executable:
-
-`chmod +x app-config` (assuming you're within the repo directory).
-
-The script is designed to detect if the directories/files are already within the user's home directory and create a .bak file before migrating the dotfiles configs to the user's home directory.
-
-When the script is removing a config, it will restore the .bak files/directories if they exist once the dotfiles config is removed.
-
-### Running examples
-
-Enabling app configs:
-
-1. `./app-config enable all`
-2. `./app-config enable starship`
-3. `./app-config enable starship tmux lazyvim`
-
-Disabling (removing) app configs:
-
-1. `./app-config disable all`
-2. `./app-config disable startship`
-3. `./app-config disable starship tmux lazyvim`
+The script itself will look at the `/etc/os-release` file on the system running the script and will use the appropriate configs if they are prefixed correctly.

@@ -1,0 +1,38 @@
+#!/bin/bash
+
+# Description:
+# This script will detect the system's OS, then apply the dotfile configs for that system type.
+
+# Grabbing the OS type from the /etc/os-release file
+OS_TYPE=$(grep -E '^ID_LIKE=' /etc/os-release | cut -d'=' -f2 | tr -d '"')
+
+# Grabbing the script's directory
+SCRIPT_PATH="$(realpath "${BASH_SOURCE[0]}")"
+SCRIPT_DIR="$(dirname "${SCRIPT_PATH}")"
+
+# LazyVim Configs
+if [ -f "${HOME}/.config/nvim/lazyvim.lua" ]; then
+	LUA_DIR="${SCRIPT_DIR}/nvim/lua"
+	PLUGINS_DIR="${LUA_DIR}/plugins"
+
+	# Setting the configs
+	ln -sf "${LUA_DIR}/config/0_config.lua" ~/.config/nvim/lua/config/0_config.lua
+
+	# Setting the plugins
+	ln -sf "${PLUGINS_DIR}/claude.lua" ~/.config/nvim/lua/plugins/claude.lua
+	ln -sf "${PLUGINS_DIR}/codecompanion.lua" ~/.config/nvim/lua/plugins/codecompanion.lua
+	ln -sf "${PLUGINS_DIR}/noice.lua" ~/.config/nvim/lua/plugins/noice.lua
+	ln -sf "${PLUGINS_DIR}/pandoc.lua" ~/.config/nvim/lua/plugins/pandoc.lua
+	ln -sf "${PLUGINS_DIR}/snacks.lua" ~/.config/nvim/lua/plugins/snacks.lua
+fi
+
+# Starship Configs
+ln -sf "${SCRIPT_DIR}/starship/starship.toml" ~/.config/starship.toml
+
+# Tmux configs
+ln -sf "${SCRIPT_DIR}/tmux/tmux.conf" ~/.tmux.conf
+
+# Vimrc configs
+ln -sf "${SCRIPT_DIR}/vimrc/${OS_TYPE}-vimrc" ~/.vimrc
+
+# TODO: Add other dotfile configs as needed
