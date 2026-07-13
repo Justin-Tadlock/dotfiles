@@ -1,0 +1,26 @@
+return {}
+-- When ready to run local LLMs, uncomment the following and add the chosen model where "model:size" is on line 10
+-- return {
+--   "olimorris/codecompanion.nvim",
+--   opts = {
+--     adapters = {
+--       ollama = function()
+--         return require("codecompanion.adapters").extend("ollama", {
+--           schema = {
+--             model = {
+--               default = "model:size",
+--             },
+--           },
+--         })
+--       end,
+--     },
+--     strategies = {
+--       chat = {
+--         adapter = "ollama",
+--       },
+--       inline = {
+--         adapter = "ollama",
+--       },
+--     },
+--   },
+-- }
