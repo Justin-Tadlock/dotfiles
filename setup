@@ -28,11 +28,17 @@ fi
 
 # Starship Configs
 ln -sf "${SCRIPT_DIR}/starship/starship.toml" ~/.config/starship.toml
+echo "NOTE: Starship requires adding \`eval \"\$(starship init bash)\"\` to your \$HOME/.bashrc file"
 
 # Tmux configs
 ln -sf "${SCRIPT_DIR}/tmux/tmux.conf" ~/.tmux.conf
 
 # Vimrc configs
 ln -sf "${SCRIPT_DIR}/vimrc/${OS_TYPE}-vimrc" ~/.vimrc
+
+# EDITOR to vim
+if [ $(echo $EDITOR) != "vim" ]; then
+	echo "NOTE: Your current EDITOR is not set to vim, please add \`export EDITOR=vim\` to your \$HOME/.bashrc file"
+fi
 
 # TODO: Add other dotfile configs as needed
