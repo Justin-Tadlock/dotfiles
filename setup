@@ -4,7 +4,8 @@
 # This script will detect the system's OS, then apply the dotfile configs for that system type.
 
 # Grabbing the OS type from the /etc/os-release file
-OS_TYPE=$(grep -E '^ID_LIKE=' /etc/os-release | cut -d'=' -f2 | tr -d '"')
+source /etc/os-release
+OS_TYPE=$(echo $ID_LIKE)
 
 # Grabbing the script's directory
 SCRIPT_PATH="$(realpath "${BASH_SOURCE[0]}")"
