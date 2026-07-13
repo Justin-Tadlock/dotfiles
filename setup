@@ -5,27 +5,11 @@
 
 # Grabbing the OS type from the /etc/os-release file
 source /etc/os-release
-OS_TYPE=$(echo $ID_LIKE)
+OS_TYPE="${ID_LIKE}"
 
 # Grabbing the script's directory
 SCRIPT_PATH="$(realpath "${BASH_SOURCE[0]}")"
 SCRIPT_DIR="$(dirname "${SCRIPT_PATH}")"
-
-# LazyVim Configs
-if [ -f "${HOME}/.config/nvim/lazyvim.lua" ]; then
-	LUA_DIR="${SCRIPT_DIR}/nvim/lua"
-	PLUGINS_DIR="${LUA_DIR}/plugins"
-
-	# Setting the configs
-	ln -sf "${LUA_DIR}/config/0_config.lua" ~/.config/nvim/lua/config/0_config.lua
-
-	# Setting the plugins
-	ln -sf "${PLUGINS_DIR}/claude.lua" ~/.config/nvim/lua/plugins/claude.lua
-	ln -sf "${PLUGINS_DIR}/codecompanion.lua" ~/.config/nvim/lua/plugins/codecompanion.lua
-	ln -sf "${PLUGINS_DIR}/noice.lua" ~/.config/nvim/lua/plugins/noice.lua
-	ln -sf "${PLUGINS_DIR}/pandoc.lua" ~/.config/nvim/lua/plugins/pandoc.lua
-	ln -sf "${PLUGINS_DIR}/snacks.lua" ~/.config/nvim/lua/plugins/snacks.lua
-fi
 
 # Starship Configs
 ln -sf "${SCRIPT_DIR}/starship/starship.toml" ~/.config/starship.toml
@@ -34,12 +18,31 @@ echo "NOTE: Starship requires adding \`eval \"\$(starship init bash)\"\` to your
 # Tmux configs
 ln -sf "${SCRIPT_DIR}/tmux/tmux.conf" ~/.tmux.conf
 
-# Vimrc configs
-ln -sf "${SCRIPT_DIR}/vimrc/${OS_TYPE}-vimrc" ~/.vimrc
-
 # EDITOR to vim
-if [ $(echo $EDITOR) != "vim" ]; then
-	echo "NOTE: Your current EDITOR is not set to vim, please add \`export EDITOR=vim\` to your \$HOME/.bashrc file"
+if [ "${EDITOR}" != "vim" ]; then
+  echo "NOTE: Your current EDITOR is not set to vim."
+  echo "Consider running \`echo \"export EDITOR=vim\" >> \${HOME}/.bashrc ; source \${HOME}/.bashrc\`"
+fi
+
+# Vimrc configs
+if [ "${#OS_TYPE}" -gt 0 ]; then
+  ln -sf "${SCRIPT_DIR}/vimrc/${OS_TYPE}-vimrc" ~/.vimrc
+fi
+
+# LazyVim Configs
+if [ -f "${HOME}/.config/nvim/lazyvim.lua" ]; then
+  LUA_DIR="${SCRIPT_DIR}/nvim/lua"
+  PLUGINS_DIR="${LUA_DIR}/plugins"
+
+  # Setting the configs
+  ln -sf "${LUA_DIR}/config/0_config.lua" ~/.config/nvim/lua/config/0_config.lua
+
+  # Setting the plugins
+  ln -sf "${PLUGINS_DIR}/claude.lua" ~/.config/nvim/lua/plugins/claude.lua
+  ln -sf "${PLUGINS_DIR}/codecompanion.lua" ~/.config/nvim/lua/plugins/codecompanion.lua
+  ln -sf "${PLUGINS_DIR}/noice.lua" ~/.config/nvim/lua/plugins/noice.lua
+  ln -sf "${PLUGINS_DIR}/pandoc.lua" ~/.config/nvim/lua/plugins/pandoc.lua
+  ln -sf "${PLUGINS_DIR}/snacks.lua" ~/.config/nvim/lua/plugins/snacks.lua
 fi
 
 # TODO: Add other dotfile configs as needed
