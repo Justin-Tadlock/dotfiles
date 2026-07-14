@@ -45,4 +45,9 @@ if [ -f "${HOME}/.config/nvim/lazyvim.lua" ]; then
   ln -sf "${PLUGINS_DIR}/snacks.lua" ~/.config/nvim/lua/plugins/snacks.lua
 fi
 
+# Claude-Code configs
+if [ -f "${HOME}/.claude" ]; then
+  ln -sf "${HOME}/.claude/CLAUDE.md" "${SCRIPT_DIR}/claude/CLAUDE.md"
+fi
+
 # TODO: Add other dotfile configs as needed
