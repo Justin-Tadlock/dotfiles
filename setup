@@ -25,6 +25,23 @@ symLink() {
   ln -sf "${originPath}" "${targetPath}"
 }
 
+# Takes in an origin directory, a target directory, and a string for plugin names.
+# Usage: symLinkNvimPlugins ~/scripts/dotfiles/nvim/lua/plugins ~/.config/nvim/lua/plugins "claude colorscheme noice"
+symLinkNvimPlugins() {
+  local scriptDir="$1"
+  local targetDir="$2"
+  local -a plugins
+
+  # Reading third argument as array
+  IFS=' ' read -ra plugins <<<"$3"
+
+  # Create the sym links for all plugins
+  for plugin in "${plugins[@]}"; do
+    echo "Creating symlink for ${plugin}"
+    symLink "${scriptDir}/${plugin}.lua" "${targetDir}/${plugin}.lua"
+  done
+}
+
 # Starship Configs
 symLink "${SCRIPT_DIR}/starship/starship.toml" ~/.config/starship.toml
 echo "NOTE: Starship requires adding \`eval \"\$(starship init bash)\"\` to your \$HOME/.bashrc file"
@@ -55,12 +72,8 @@ if [[ -d "${HOME}/.config/nvim" ]]; then
   symLink "${SCRIPT_LUA}/config/0_config.lua" "${HOME_NVIM}/lua/config/0_config.lua"
 
   # Setting the plugins
-  symLink "${SCRIPT_PLUGINS}/claude.lua" "${HOME_PLUGINS}/claude.lua"
-  symLink "${SCRIPT_PLUGINS}/codecompanion.lua" "${HOME_PLUGINS}/codecompanion.lua"
-  symLink "${SCRIPT_PLUGINS}/colorscheme.lua" "${HOME_PLUGINS}/colorscheme.lua"
-  symLink "${SCRIPT_PLUGINS}/noice.lua" "${HOME_PLUGINS}/noice.lua"
-  symLink "${SCRIPT_PLUGINS}/pandoc.lua" "${HOME_PLUGINS}/pandoc.lua"
-  symLink "${SCRIPT_PLUGINS}/snacks.lua" "${HOME_PLUGINS}/snacks.lua"
+  NVIM_PLUGINS="claude codecompanion colorscheme noice pandoc snacks"
+  symLinkNvimPlugins "${SCRIPT_PLUGINS}" "${HOME_PLUGINS}" "${NVIM_PLUGINS}"
 fi
 
 # Claude-Code configs
