@@ -48,18 +48,18 @@ if [[ -d "${HOME}/.config/nvim" ]]; then
   HOME_NVIM="${HOME}/.config/nvim"
   HOME_PLUGINS="${HOME_NVIM}/lua/plugins"
 
-  LUA_DIR="${SCRIPT_DIR}/nvim/lua"
-  PLUGINS_DIR="${LUA_DIR}/plugins"
+  SCRIPT_LUA="${SCRIPT_DIR}/nvim/lua"
+  SCRIPT_PLUGINS="${SCRIPT_LUA}/plugins"
 
   # Setting the configs
-  symLink "${LUA_DIR}/config/0_config.lua" "${HOME_NVIM}/lua/config/0_config.lua"
+  symLink "${SCRIPT_LUA}/config/0_config.lua" "${HOME_NVIM}/lua/config/0_config.lua"
 
   # Setting the plugins
-  symLink "${PLUGINS_DIR}/claude.lua" "${HOME_PLUGINS}/claude.lua"
-  symLink "${PLUGINS_DIR}/codecompanion.lua" "${HOME_PLUGINS}/codecompanion.lua"
-  symLink "${PLUGINS_DIR}/noice.lua" "${HOME_PLUGINS}/noice.lua"
-  symLink "${PLUGINS_DIR}/pandoc.lua" "${HOME_PLUGINS}/pandoc.lua"
-  symLink "${PLUGINS_DIR}/snacks.lua" "${HOME_PLUGINS}/snacks.lua"
+  symLink "${SCRIPT_PLUGINS}/claude.lua" "${HOME_PLUGINS}/claude.lua"
+  symLink "${SCRIPT_PLUGINS}/codecompanion.lua" "${HOME_PLUGINS}/codecompanion.lua"
+  symLink "${SCRIPT_PLUGINS}/noice.lua" "${HOME_PLUGINS}/noice.lua"
+  symLink "${SCRIPT_PLUGINS}/pandoc.lua" "${HOME_PLUGINS}/pandoc.lua"
+  symLink "${SCRIPT_PLUGINS}/snacks.lua" "${HOME_PLUGINS}/snacks.lua"
 fi
 
 # Claude-Code configs
