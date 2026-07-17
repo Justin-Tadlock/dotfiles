@@ -16,12 +16,21 @@ OS_TYPE=$(getOsType)
 SCRIPT_PATH="$(realpath "${BASH_SOURCE[0]}")"
 SCRIPT_DIR="$(dirname "${SCRIPT_PATH}")"
 
+symLink() {
+  local originPath="$1"
+  local targetPath="$2"
+
+  [[ ! -f "${originPath}" ]] && echo "symLink: Invalid origin path." && exit 1
+
+  ln -sf "${originPath}" "${targetPath}"
+}
+
 # Starship Configs
-ln -sf "${SCRIPT_DIR}/starship/starship.toml" ~/.config/starship.toml
+symLink "${SCRIPT_DIR}/starship/starship.toml" ~/.config/starship.toml
 echo "NOTE: Starship requires adding \`eval \"\$(starship init bash)\"\` to your \$HOME/.bashrc file"
 
 # Tmux configs
-ln -sf "${SCRIPT_DIR}/tmux/tmux.conf" ~/.tmux.conf
+symLink "${SCRIPT_DIR}/tmux/tmux.conf" ~/.tmux.conf
 
 # EDITOR to vim
 if [[ "${EDITOR}" != "vim" ]]; then
@@ -31,26 +40,29 @@ fi
 
 # Vimrc configs
 if [[ "${#OS_TYPE}" -gt 0 ]]; then
-  ln -sf "${SCRIPT_DIR}/vimrc/${OS_TYPE}-vimrc" ~/.vimrc
+  symLink "${SCRIPT_DIR}/vimrc/${OS_TYPE}-vimrc" ~/.vimrc
 fi
 
 # LazyVim Configs
-if [[ -f "${HOME}/.config/nvim/lazyvim.lua" ]]; then
+if [[ -d "${HOME}/.config/nvim" ]]; then
+  HOME_NVIM="${HOME}/.config/nvim"
+  HOME_PLUGINS="${HOME_NVIM}/lua/plugins"
+
   LUA_DIR="${SCRIPT_DIR}/nvim/lua"
   PLUGINS_DIR="${LUA_DIR}/plugins"
 
   # Setting the configs
-  ln -sf "${LUA_DIR}/config/0_config.lua" ~/.config/nvim/lua/config/0_config.lua
+  symLink "${LUA_DIR}/config/0_config.lua" "${HOME_NVIM}/lua/config/0_config.lua"
 
   # Setting the plugins
-  ln -sf "${PLUGINS_DIR}/claude.lua" ~/.config/nvim/lua/plugins/claude.lua
-  ln -sf "${PLUGINS_DIR}/codecompanion.lua" ~/.config/nvim/lua/plugins/codecompanion.lua
-  ln -sf "${PLUGINS_DIR}/noice.lua" ~/.config/nvim/lua/plugins/noice.lua
-  ln -sf "${PLUGINS_DIR}/pandoc.lua" ~/.config/nvim/lua/plugins/pandoc.lua
-  ln -sf "${PLUGINS_DIR}/snacks.lua" ~/.config/nvim/lua/plugins/snacks.lua
+  symLink "${PLUGINS_DIR}/claude.lua" "${HOME_PLUGINS}/claude.lua"
+  symLink "${PLUGINS_DIR}/codecompanion.lua" "${HOME_PLUGINS}/codecompanion.lua"
+  symLink "${PLUGINS_DIR}/noice.lua" "${HOME_PLUGINS}/noice.lua"
+  symLink "${PLUGINS_DIR}/pandoc.lua" "${HOME_PLUGINS}/pandoc.lua"
+  symLink "${PLUGINS_DIR}/snacks.lua" "${HOME_PLUGINS}/snacks.lua"
 fi
 
 # Claude-Code configs
-[[ -d "${HOME}/.claude" ]] && ln -sf "${HOME}/.claude/CLAUDE.md" "${SCRIPT_DIR}/claude/CLAUDE.md"
+[[ -d "${HOME}/.claude" ]] && symLink "${SCRIPT_DIR}/claude/CLAUDE.md" ~/.claude/CLAUDE.md
 
 # TODO: Add other dotfile configs as needed
