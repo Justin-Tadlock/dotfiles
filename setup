@@ -20,8 +20,9 @@ symLink() {
   local originPath="$1"
   local targetPath="$2"
 
-  [[ ! -f "${originPath}" ]] && echo "symLink: Invalid origin path." && exit 1
+  [[ ! -f "${originPath}" ]] && echo "symLink: Invalid origin path: ${originPath}" && exit 1
 
+  echo "Creating symlink for ${originPath}"
   ln -sf "${originPath}" "${targetPath}"
 }
 
@@ -37,7 +38,6 @@ symLinkNvimPlugins() {
 
   # Create the sym links for all plugins
   for plugin in "${plugins[@]}"; do
-    echo "Creating symlink for ${plugin}"
     symLink "${scriptDir}/${plugin}.lua" "${targetDir}/${plugin}.lua"
   done
 }
@@ -78,7 +78,7 @@ if [[ -d "${HOME}/.config/nvim" ]]; then
   symLink "${SCRIPT_LUA}/config/0_config.lua" "${HOME_NVIM}/lua/config/0_config.lua"
 
   # Setting the plugins
-  NVIM_PLUGINS="claude codecompanion colorscheme noice pandoc snacks treesitter"
+  NVIM_PLUGINS="buffertabs claude codecompanion colorscheme conform fzf lazygit pandoc snacks treesitter whichkey"
   symLinkNvimPlugins "${SCRIPT_PLUGINS}" "${HOME_PLUGINS}" "${NVIM_PLUGINS}"
 fi
 
