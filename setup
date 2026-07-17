@@ -3,9 +3,14 @@
 # Description:
 # This script will detect the system's OS, then apply the dotfile configs for that system type.
 
-# Grabbing the OS type from the /etc/os-release file
-source /etc/os-release
-OS_TYPE="${ID_LIKE}"
+# Grabbing the OS type from the /etc/os-release file, scoping the shellcheck directive to only this function
+getOsType() {
+  # shellcheck disable=SC1091
+  source /etc/os-release
+
+  echo "${ID_LIKE}"
+}
+OS_TYPE=$(getOsType)
 
 # Grabbing the script's directory
 SCRIPT_PATH="$(realpath "${BASH_SOURCE[0]}")"
@@ -19,18 +24,18 @@ echo "NOTE: Starship requires adding \`eval \"\$(starship init bash)\"\` to your
 ln -sf "${SCRIPT_DIR}/tmux/tmux.conf" ~/.tmux.conf
 
 # EDITOR to vim
-if [ "${EDITOR}" != "vim" ]; then
+if [[ "${EDITOR}" != "vim" ]]; then
   echo "NOTE: Your current EDITOR is not set to vim."
   echo "Consider running \`echo \"export EDITOR=vim\" >> \${HOME}/.bashrc ; source \${HOME}/.bashrc\`"
 fi
 
 # Vimrc configs
-if [ "${#OS_TYPE}" -gt 0 ]; then
+if [[ "${#OS_TYPE}" -gt 0 ]]; then
   ln -sf "${SCRIPT_DIR}/vimrc/${OS_TYPE}-vimrc" ~/.vimrc
 fi
 
 # LazyVim Configs
-if [ -f "${HOME}/.config/nvim/lazyvim.lua" ]; then
+if [[ -f "${HOME}/.config/nvim/lazyvim.lua" ]]; then
   LUA_DIR="${SCRIPT_DIR}/nvim/lua"
   PLUGINS_DIR="${LUA_DIR}/plugins"
 
@@ -46,8 +51,6 @@ if [ -f "${HOME}/.config/nvim/lazyvim.lua" ]; then
 fi
 
 # Claude-Code configs
-if [ -f "${HOME}/.claude" ]; then
-  ln -sf "${HOME}/.claude/CLAUDE.md" "${SCRIPT_DIR}/claude/CLAUDE.md"
-fi
+[[ -d "${HOME}/.claude" ]] && ln -sf "${HOME}/.claude/CLAUDE.md" "${SCRIPT_DIR}/claude/CLAUDE.md"
 
 # TODO: Add other dotfile configs as needed
