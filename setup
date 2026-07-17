@@ -68,11 +68,17 @@ if [[ -d "${HOME}/.config/nvim" ]]; then
   SCRIPT_LUA="${SCRIPT_DIR}/nvim/lua"
   SCRIPT_PLUGINS="${SCRIPT_LUA}/plugins"
 
+  # Adding the readme file
+  symLink "${SCRIPT_DIR}/nvim/README.md" ~/.config/nvim/README.md
+
+  # Adding the init file
+  symLink "${SCRIPT_DIR}/nvim/init.lua" ~/.config/nvim/init.lua
+
   # Setting the configs
   symLink "${SCRIPT_LUA}/config/0_config.lua" "${HOME_NVIM}/lua/config/0_config.lua"
 
   # Setting the plugins
-  NVIM_PLUGINS="claude codecompanion colorscheme noice pandoc snacks"
+  NVIM_PLUGINS="claude codecompanion colorscheme noice pandoc snacks treesitter"
   symLinkNvimPlugins "${SCRIPT_PLUGINS}" "${HOME_PLUGINS}" "${NVIM_PLUGINS}"
 fi
 
