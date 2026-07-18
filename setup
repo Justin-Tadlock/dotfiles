@@ -34,7 +34,6 @@ symLink() {
   local targetPath="$2"
 
   if [[ -f "${originPath}" ]]; then
-    echo "Creating symlink for ${originPath}"
     # Need to make sure there's a valid target to symlink
     [[ ! -f "${targetPath}" ]] && touch "${targetPath}"
 
@@ -65,28 +64,38 @@ symLinkNvimLuaConfigs() {
 
 # Starship Configs
 if isInstalled starship; then
+  echo "Creating symLinks for starship.."
   symLink "${SCRIPT_DIR}/starship/starship.toml" ~/.config/starship.toml
-  echo "NOTE: Starship requires adding \`eval \"\$(starship init bash)\"\` to your \$HOME/.bashrc file"
+  echo "NOTE: Starship requires adding \`eval \"\$(starship init bash)\"\` to your ~/.bashrc file"
+  echo "Done." && echo ""
 fi
 
 # Tmux configs
 if isInstalled tmux; then
+  echo "Creating symLinks for tmux.."
   symLink "${SCRIPT_DIR}/tmux/tmux.conf" ~/.tmux.conf
+  echo "Done." && echo ""
 fi
 
 # EDITOR to vim
 if [[ "${EDITOR}" != "vim" ]]; then
+  echo "Checking for EDITOR set to 'vim'.."
   echo "NOTE: Your current EDITOR is not set to vim."
-  echo "Consider running \`echo \"export EDITOR=vim\" >> \${HOME}/.bashrc ; source \${HOME}/.bashrc\`"
+  echo "Consider adding \`export EDITOR=vim\` to your ~/.bashrc"
+  echo "Done." && echo ""
 fi
 
 # Vimrc configs
 if isInstalled vim; then
+  echo "Creating symLinks for vimrc.."
   symLink "${SCRIPT_DIR}/vimrc/${OS_TYPE}-vimrc" ~/.vimrc
+  echo "Done." && echo ""
 fi
 
 # NeoVim Config
 if isInstalled nvim; then
+  echo "Creating symLinks for nvim.."
+
   HOME_NVIM="${HOME}/.config/nvim"
   HOME_PLUGINS="${HOME_NVIM}/lua/plugins"
 
@@ -108,11 +117,29 @@ if isInstalled nvim; then
   # Setting the plugins
   NVIM_PLUGINS="buffertabs claude codecompanion colorscheme conform fzf lazygit pandoc snacks treesitter whichkey"
   symLinkNvimLuaConfigs "${SCRIPT_PLUGINS}" "${HOME_PLUGINS}" "${NVIM_PLUGINS}"
+
+  echo "Done." && echo ""
 fi
 
 # Claude-Code configs
 if isInstalled claude; then
+  echo "Creating symLinks for Claude-Code.."
   [[ -d "${HOME}/.claude" ]] && symLink "${SCRIPT_DIR}/claude/CLAUDE.md" ~/.claude/CLAUDE.md
+  echo "Done." && echo ""
 fi
+
+# Add personal scripts symlink
+[[ ! -d "${HOME}/scripts" ]] && mkdir "${HOME}/scripts"
+symLinkScripts() {
+  echo "Creating symLinks for scripts.."
+  for script in "${SCRIPT_DIR}"/scripts/*; do
+    local scriptname="${script##*/}"
+    symLink "${script}" ~/scripts/"${scriptname}"
+    chmod +x "${script}"
+  done
+  echo "NOTE: Don't forget to add \`export PATH=\"\${HOME}/scripts:\${PATH}\"\` to your ~/.bashrc"
+  echo "Done." && echo ""
+}
+symLinkScripts
 
 # TODO: Add other dotfile configs as needed

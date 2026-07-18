@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# Converts text to a URL slug (e.g., "Some sort of text!" -> some-sort-of-text)
+read -r line
+line="${line,,}"
+line="${line//[^a-z0-9]/-}"
+line="${line//--/-}"
+echo "${line#-}"
