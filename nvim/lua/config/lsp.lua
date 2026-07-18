@@ -58,7 +58,20 @@ vim.lsp.config("marksman", {
 	root_markers = { ".marksman.toml", ".git" },
 })
 
-vim.lsp.enable({ "vtsls", "eslint", "marksman" })
+vim.lsp.config("bashls", {
+  cmd = { "bash-language-server", "start" },
+  filetypes= { "sh", "bash" },
+  root_markers = { ".git" },
+  settings = {
+    bashIde = {
+      -- shellcheck is a separate binary this defers to for linting;
+      -- without it on $PATH, bashls still runs, just without diagnostics.
+      shellcheckPath = "shellcheck",
+    },
+  },
+})
+
+vim.lsp.enable({ "vtsls", "eslint", "marksman", "bashls" })
 
 -- Shared on-attach keymaps -------------------------------------------------
 

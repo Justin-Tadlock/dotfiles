@@ -28,7 +28,7 @@ symLink() {
 
 # Takes in an origin directory, a target directory, and a string for plugin names.
 # Usage: symLinkNvimPlugins ~/scripts/dotfiles/nvim/lua/plugins ~/.config/nvim/lua/plugins "claude colorscheme noice"
-symLinkNvimPlugins() {
+symLinkNvimConfigs() {
   local scriptDir="$1"
   local targetDir="$2"
   local -a plugins
@@ -75,11 +75,12 @@ if [[ -d "${HOME}/.config/nvim" ]]; then
   symLink "${SCRIPT_DIR}/nvim/init.lua" ~/.config/nvim/init.lua
 
   # Setting the configs
-  symLink "${SCRIPT_LUA}/config/0_config.lua" "${HOME_NVIM}/lua/config/0_config.lua"
+  NVIM_CONFIGS="0_config lsp"
+  symLinkNvimConfigs "${SCRIPT_LUA}/config" ~/.config/nvim/lua/config "${NVIM_CONFIGS}"
 
   # Setting the plugins
   NVIM_PLUGINS="buffertabs claude codecompanion colorscheme conform fzf lazygit pandoc snacks treesitter whichkey"
-  symLinkNvimPlugins "${SCRIPT_PLUGINS}" "${HOME_PLUGINS}" "${NVIM_PLUGINS}"
+  symLinkNvimConfigs "${SCRIPT_PLUGINS}" "${HOME_PLUGINS}" "${NVIM_PLUGINS}"
 fi
 
 # Claude-Code configs

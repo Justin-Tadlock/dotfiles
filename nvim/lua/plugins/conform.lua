@@ -20,6 +20,8 @@ require("conform").setup({
     html = { "prettier" },
     yaml = { "prettier" },
     markdown = { "prettier" },
+    sh = { "shfmt" },
+    bash = { "shfmt" },
   },
   format_on_save = {
     timeout_ms = 1000,
