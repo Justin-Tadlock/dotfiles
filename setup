@@ -3,12 +3,20 @@
 # Description:
 # This script will detect the system's OS, then apply the dotfile configs for that system type.
 
-# Grabbing the OS type from the /etc/os-release file, scoping the shellcheck directive to only this function
+# Grabbing the OS type from the /etc/os-release file,
+# scoping the shellcheck directive to only this function.
+#
+# If /etc/os-release does not exist, assumes macos
 getOsType() {
-  # shellcheck disable=SC1091
-  source /etc/os-release
+  # This is only applicable on Linux machines.
+  if [[ -f /etc/os-release ]]; then
+    # shellcheck disable=SC1091
+    source /etc/os-release
 
-  echo "${ID_LIKE}"
+    echo "${ID_LIKE}"
+  else
+    echo "macos"
+  fi
 }
 OS_TYPE=$(getOsType)
 
@@ -16,25 +24,38 @@ OS_TYPE=$(getOsType)
 SCRIPT_PATH="$(realpath "${BASH_SOURCE[0]}")"
 SCRIPT_DIR="$(dirname "${SCRIPT_PATH}")"
 
+# Shorthand function for checking if software is installed
+isInstalled() {
+  command -v "${1}" &>/dev/null
+}
+
 symLink() {
   local originPath="$1"
   local targetPath="$2"
 
-  [[ ! -f "${originPath}" ]] && echo "symLink: Invalid origin path: ${originPath}" && exit 1
+  if [[ -f "${originPath}" ]]; then
+    echo "Creating symlink for ${originPath}"
+    # Need to make sure there's a valid target to symlink
+    [[ ! -f "${targetPath}" ]] && touch "${targetPath}"
 
-  echo "Creating symlink for ${originPath}"
-  ln -sf "${originPath}" "${targetPath}"
+    ln -sf "${originPath}" "${targetPath}"
+  else
+    echo "symLink: Invalid origin path: ${originPath}"
+  fi
 }
 
 # Takes in an origin directory, a target directory, and a string for plugin names.
 # Usage: symLinkNvimPlugins ~/scripts/dotfiles/nvim/lua/plugins ~/.config/nvim/lua/plugins "claude colorscheme noice"
-symLinkNvimConfigs() {
+symLinkNvimLuaConfigs() {
   local scriptDir="$1"
   local targetDir="$2"
   local -a plugins
 
   # Reading third argument as array
   IFS=' ' read -ra plugins <<<"$3"
+
+  # Need to make sure the target directory exists
+  [[ ! -d "${targetDir}" ]] && mkdir -p "${targetDir}"
 
   # Create the sym links for all plugins
   for plugin in "${plugins[@]}"; do
@@ -43,11 +64,15 @@ symLinkNvimConfigs() {
 }
 
 # Starship Configs
-symLink "${SCRIPT_DIR}/starship/starship.toml" ~/.config/starship.toml
-echo "NOTE: Starship requires adding \`eval \"\$(starship init bash)\"\` to your \$HOME/.bashrc file"
+if isInstalled starship; then
+  symLink "${SCRIPT_DIR}/starship/starship.toml" ~/.config/starship.toml
+  echo "NOTE: Starship requires adding \`eval \"\$(starship init bash)\"\` to your \$HOME/.bashrc file"
+fi
 
 # Tmux configs
-symLink "${SCRIPT_DIR}/tmux/tmux.conf" ~/.tmux.conf
+if isInstalled tmux; then
+  symLink "${SCRIPT_DIR}/tmux/tmux.conf" ~/.tmux.conf
+fi
 
 # EDITOR to vim
 if [[ "${EDITOR}" != "vim" ]]; then
@@ -56,34 +81,38 @@ if [[ "${EDITOR}" != "vim" ]]; then
 fi
 
 # Vimrc configs
-if [[ "${#OS_TYPE}" -gt 0 ]]; then
+if isInstalled vim; then
   symLink "${SCRIPT_DIR}/vimrc/${OS_TYPE}-vimrc" ~/.vimrc
 fi
 
-# LazyVim Configs
-if [[ -d "${HOME}/.config/nvim" ]]; then
+# NeoVim Config
+if isInstalled nvim; then
   HOME_NVIM="${HOME}/.config/nvim"
   HOME_PLUGINS="${HOME_NVIM}/lua/plugins"
 
-  SCRIPT_LUA="${SCRIPT_DIR}/nvim/lua"
+  SCRIPT_NVIM="${SCRIPT_DIR}/nvim"
+  SCRIPT_LUA="${SCRIPT_NVIM}/lua"
   SCRIPT_PLUGINS="${SCRIPT_LUA}/plugins"
 
-  # Adding the readme file
-  symLink "${SCRIPT_DIR}/nvim/README.md" ~/.config/nvim/README.md
+  # Need to make sure the nvim config directory exists.
+  [[ ! -d "${HOME_NVIM}" ]] && mkdir -p "${HOME_NVIM}"
 
-  # Adding the init file
-  symLink "${SCRIPT_DIR}/nvim/init.lua" ~/.config/nvim/init.lua
+  # Adding nvim directory files
+  symLink "${SCRIPT_NVIM}/README.md" "${HOME_NVIM}/README.md"
+  symLink "${SCRIPT_NVIM}/init.lua" "${HOME_NVIM}/init.lua"
 
   # Setting the configs
   NVIM_CONFIGS="0_config lsp"
-  symLinkNvimConfigs "${SCRIPT_LUA}/config" ~/.config/nvim/lua/config "${NVIM_CONFIGS}"
+  symLinkNvimLuaConfigs "${SCRIPT_LUA}/config" "${HOME_NVIM}/lua/config" "${NVIM_CONFIGS}"
 
   # Setting the plugins
   NVIM_PLUGINS="buffertabs claude codecompanion colorscheme conform fzf lazygit pandoc snacks treesitter whichkey"
-  symLinkNvimConfigs "${SCRIPT_PLUGINS}" "${HOME_PLUGINS}" "${NVIM_PLUGINS}"
+  symLinkNvimLuaConfigs "${SCRIPT_PLUGINS}" "${HOME_PLUGINS}" "${NVIM_PLUGINS}"
 fi
 
 # Claude-Code configs
-[[ -d "${HOME}/.claude" ]] && symLink "${SCRIPT_DIR}/claude/CLAUDE.md" ~/.claude/CLAUDE.md
+if isInstalled claude; then
+  [[ -d "${HOME}/.claude" ]] && symLink "${SCRIPT_DIR}/claude/CLAUDE.md" ~/.claude/CLAUDE.md
+fi
 
 # TODO: Add other dotfile configs as needed

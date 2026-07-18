@@ -54,5 +54,5 @@ vim.keymap.set("n", "<leader>e", function()
   Snacks.explorer()
 end, { desc = "File explorer" })
 
-vim.keymap.set({ "n" }, "<C-_>", toggleTerminal, { desc = "Toggle terminal" })
-vim.keymap.set({ "n" }, "<C-/>", toggleTerminal, { desc = "Toggle terminal" })
+vim.keymap.set({ "n", "t" }, "<C-_>", toggleTerminal, { desc = "Toggle terminal" })
+vim.keymap.set({ "n", "t" }, "<C-/>", toggleTerminal, { desc = "Toggle terminal" })
