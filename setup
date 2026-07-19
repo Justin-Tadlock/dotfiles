@@ -43,24 +43,34 @@ symLink() {
   fi
 }
 
-# Takes in an origin directory, a target directory, and a string for plugin names.
-# Usage: symLinkNvimPlugins ~/scripts/dotfiles/nvim/lua/plugins ~/.config/nvim/lua/plugins "claude colorscheme noice"
-symLinkNvimLuaConfigs() {
-  local scriptDir="$1"
-  local targetDir="$2"
-  local -a plugins
+# Takes in origin directory and a target directory.
+# Iterates through all files within origin directory and creates symLinks within the target directory.
+symLinkDir() {
+  local originDir="${1}"
+  local targetDir="${2}"
 
-  # Reading third argument as array
-  IFS=' ' read -ra plugins <<<"$3"
+  if [[ -d "${originDir}" ]]; then
+    echo "Creating symLinks for ${originDir##*/} files.."
 
-  # Need to make sure the target directory exists
-  [[ ! -d "${targetDir}" ]] && mkdir -p "${targetDir}"
+    # Making sure targetDir exists
+    [[ ! -d "${targetDir}" ]] && mkdir -p "${targetDir}"
 
-  # Create the sym links for all plugins
-  for plugin in "${plugins[@]}"; do
-    symLink "${scriptDir}/${plugin}.lua" "${targetDir}/${plugin}.lua"
-  done
+    for file in "${originDir}"/*; do
+      local fileName="${file##*/}"
+      symLink "${file}" "${targetDir}/${fileName}"
+    done
+
+    echo "Done." && echo ""
+  else
+    echo "symLinkDir: ERROR: Invalid originDir: ${originDir}"
+  fi
 }
+
+# i3 Configs
+if isInstalled i3; then
+  echo "Creating symLinks for i3.."
+  symLinkDir "${SCRIPT_DIR}/i3-wm" ~/.config/i3
+fi
 
 # Starship Configs
 if isInstalled starship; then
@@ -70,14 +80,14 @@ if isInstalled starship; then
   echo "Done." && echo ""
 fi
 
-# Tmux configs
+# Tmux Configs
 if isInstalled tmux; then
   echo "Creating symLinks for tmux.."
   symLink "${SCRIPT_DIR}/tmux/tmux.conf" ~/.tmux.conf
   echo "Done." && echo ""
 fi
 
-# Alacritty configs
+# Alacritty Configs
 if isInstalled alacritty; then
   echo "Creating symLinks for alacritty.."
   [[ ! -d ~/.config/alacritty ]] && mkdir -p ~/.config/alacritty
@@ -93,14 +103,14 @@ if [[ "${EDITOR}" != "vim" ]]; then
   echo "Done." && echo ""
 fi
 
-# Vimrc configs
+# Vimrc Configs
 if isInstalled vim; then
   echo "Creating symLinks for vimrc.."
   symLink "${SCRIPT_DIR}/vimrc/${OS_TYPE}-vimrc" ~/.vimrc
   echo "Done." && echo ""
 fi
 
-# NeoVim Config
+# NeoVim Configs
 if isInstalled nvim; then
   echo "Creating symLinks for nvim.."
 
@@ -119,17 +129,13 @@ if isInstalled nvim; then
   symLink "${SCRIPT_NVIM}/init.lua" "${HOME_NVIM}/init.lua"
 
   # Setting the configs
-  NVIM_CONFIGS="0_config lsp"
-  symLinkNvimLuaConfigs "${SCRIPT_LUA}/config" "${HOME_NVIM}/lua/config" "${NVIM_CONFIGS}"
+  symLinkDir "${SCRIPT_LUA}/config" "${HOME_NVIM}/lua/config"
 
   # Setting the plugins
-  NVIM_PLUGINS="buffertabs claude codecompanion colorscheme conform fzf lazygit pandoc snacks treesitter whichkey"
-  symLinkNvimLuaConfigs "${SCRIPT_PLUGINS}" "${HOME_PLUGINS}" "${NVIM_PLUGINS}"
-
-  echo "Done." && echo ""
+  symLinkDir "${SCRIPT_PLUGINS}" "${HOME_PLUGINS}"
 fi
 
-# Claude-Code configs
+# Claude-Code Configs
 if isInstalled claude; then
   echo "Creating symLinks for Claude-Code.."
   [[ -d "${HOME}/.claude" ]] && symLink "${SCRIPT_DIR}/claude/CLAUDE.md" ~/.claude/CLAUDE.md
@@ -141,8 +147,8 @@ fi
 symLinkScripts() {
   echo "Creating symLinks for scripts.."
   for script in "${SCRIPT_DIR}"/scripts/*; do
-    local scriptname="${script##*/}"
-    symLink "${script}" ~/scripts/"${scriptname}"
+    local scriptName="${script##*/}"
+    symLink "${script}" ~/scripts/"${scriptName}"
     chmod +x "${script}"
   done
   echo "NOTE: Don't forget to add \`export PATH=\"\${HOME}/scripts:\${PATH}\"\` to your ~/.bashrc"
