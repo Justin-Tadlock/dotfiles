@@ -1,5 +1,5 @@
 [font.normal]
-family = "JetBrainsMono Nerf Font"
+family = "JetBrainsMono Nerd Font"
 
 [terminal]
 shell = { program = "/usr/bin/tmux" }
