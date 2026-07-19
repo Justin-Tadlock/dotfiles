@@ -77,6 +77,13 @@ if isInstalled tmux; then
   echo "Done." && echo ""
 fi
 
+# Alacritty configs
+if isInstalled alacritty; then
+  echo "Creating symLinks for alacritty.."
+  symLink "${SCRIPT_DIR}/alacritty/alacritty.toml" ~/.config/alacritty/alacritty.toml
+  echo "Done." && echo ""
+fi
+
 # EDITOR to vim
 if [[ "${EDITOR}" != "vim" ]]; then
   echo "Checking for EDITOR set to 'vim'.."
