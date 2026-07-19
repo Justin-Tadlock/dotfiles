@@ -80,6 +80,7 @@ fi
 # Alacritty configs
 if isInstalled alacritty; then
   echo "Creating symLinks for alacritty.."
+  [[ ! -d ~/.config/alacritty ]] && mkdir -p ~/.config/alacritty
   symLink "${SCRIPT_DIR}/alacritty/alacritty.toml" ~/.config/alacritty/alacritty.toml
   echo "Done." && echo ""
 fi
