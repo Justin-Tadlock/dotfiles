@@ -1,4 +1,4 @@
-exec --no-startup-id ~/set_once.sh
+# exec --no-startup-id ~/set_once.sh
 # This file is a modified version based on default i3-config-wizard config
 # source is available here:
 # https://raw.githubusercontent.com/endeavouros-team/endeavouros-i3wm-setup/main/etc/skel/.config/i3/config
@@ -54,7 +54,7 @@ new_window pixel 1
 # hide_edge_borders both
 
 # Set inner/outer gaps
-gaps inner 3
+gaps inner 3 
 gaps outer 1
 
 # show window title bars (not officially supported with i3gaps)
@@ -149,20 +149,20 @@ mode "resize" {
 # Pressing right will grow the window's width.
 # Pressing up will shrink the window's height.
 # Pressing down will grow the window's height.
-       bindsym h resize shrink width 10 px or 10 ppt
-       bindsym j resize grow height 10 px or 10 ppt
-       bindsym k resize shrink height 10 px or 10 ppt
-       bindsym l resize grow width 10 px or 10 ppt
+        bindsym h resize shrink width 10 px or 10 ppt
+        bindsym j resize grow height 10 px or 10 ppt
+        bindsym k resize shrink height 10 px or 10 ppt
+        bindsym l resize grow width 10 px or 10 ppt
 
 # same bindings, but for the arrow keys
-       bindsym Left resize shrink width 10 px or 10 ppt
-       bindsym Down resize grow height 10 px or 10 ppt
-       bindsym Up resize shrink height 10 px or 10 ppt
-       bindsym Right resize grow width 10 px or 10 ppt
+        bindsym Left resize shrink width 10 px or 10 ppt
+        bindsym Down resize grow height 10 px or 10 ppt
+        bindsym Up resize shrink height 10 px or 10 ppt
+        bindsym Right resize grow width 10 px or 10 ppt
 
 # back to normal: Enter or Escape
-       bindsym Return mode "default"
-       bindsym Escape mode "default"
+        bindsym Return mode "default"
+        bindsym Escape mode "default"
 }
 
 bindsym $mod+r mode "resize"
@@ -324,54 +324,46 @@ set $ws2 "2:Comms"
 set $ws3 "3:DevOps"
 set $ws4 "4:Trading"
 set $ws5 "5:Steam"
-set $ws6 "6"
-set $ws7 "7"
-set $ws8 "8"
-set $ws9 "9"
-set $ws10 "10"
+set $ws6 "6:Games"
+set $ws7 "7:"
+set $ws8 "8:"
+set $ws9 "9:"
+set $ws10 "10:"
 
 # use workspaces on different displays:
 # where you have to replace VGA-0/HDMI-0 with the names for your displays
 # you can get from xrandr command
-workspace $ws1 output DP-2
-workspace $ws2 output DP-2
-workspace $ws3 output DP-4
-workspace $ws4 output DP-4
-workspace $ws5 output DP-4
-workspace $ws6 output DP-4
-workspace $ws7 output DP-4
+workspace $ws1 output DP-4
+workspace $ws2 output DP-4
+workspace $ws3 output DP-2
+workspace $ws4 output DP-2
+workspace $ws5 output DP-2
+workspace $ws5 output DP-2
+workspace $ws5 output DP-2
 
 # bind program to workspace and focus to them on startup:
-assign [class="Brave"] $ws1
-for_window [class="Brave"] focus
-
-assign [class="Discord"] $ws2
-for_window [class="Discord"] focus
-
+assign [class="Brave-browser"] $ws1
+assign [class="(?i)firefox"] $ws1
+assign [class="Thunar"] $ws1
+assign [class="thunderbird"] $ws2
 assign [class="TelegramDesktop"] $ws2
-for_window [class="TelegramDesktop"] focus
-
+assign [class="discord"] $ws2
+assign [class="Xfce4-terminal"] $ws3
 assign [class="Alacritty"] $ws3
-for_window [class="Alacritty"] focus
-
 assign [class="IBKR Desktop"] $ws4
-for_window [class="IBKR Desktop"] focus
-
-assign [class="Steam"] $ws5
-for_window [class="Steam"] focus
-
-# assign [class="Xfce4-terminal"] $ws1
-# assign [class="(?i)firefox"] $ws2
-# assign [class="Thunar"] $ws3
-# assign [class="thunderbird"] $ws4
-# assign [class="TelegramDesktop"] $ws5
+assign [class="steam"] $ws5
 
 # automatic set focus new window if it opens on another workspace than the current:
-# for_window [class=Xfce4-terminal] focus
-# for_window [class=(?i)firefox] focus
-# for_window [class=Thunar] focus
-# for_window [class=Thunderbird] focus
-# for_window [class=TelegramDesktop] focus
+for_window [class="Brave-browser"] focus
+for_window [class=(?i)firefox] focus
+for_window [class=Thunar] focus
+for_window [class=Thunderbird] focus
+for_window [class=TelegramDesktop] focus
+for_window [class=discord] focus
+for_window [class=Xfce4-terminal] focus
+for_window [class=Alacritty] focus
+for_window [class="IBKR Desktop"] focus
+for_window [class=steam] focus
 
 ##################
 # floating rules #
@@ -422,10 +414,10 @@ exec_always $HOME/.config/i3/scripts/import-gsettings
 # install picom package (sudo pacman -Syu picom)
 
 # start using default config
-exec_always --no-startup-id picom -b
+#exec_always --no-startup-id picom -b
 
 # for custom config:
-exec_always --no-startup-id picom --config  ~/.config/picom.conf
+#exec_always --no-startup-id picom --config  ~/.config/picom.conf
 
 
 ## applications/services
@@ -509,7 +501,7 @@ exec --no-startup-id /usr/bin/dunst
 #exec --no-startup-id blueberry-tray
 
 # networkmanager-applet
-#exec --no-startup-id nm-applet
+exec --no-startup-id nm-applet
 
 # clipman-applet
 #exec --no-startup-id xfce4-clipman
@@ -623,25 +615,21 @@ bindsym $mod+t exec --no-startup-id rofi -show window \
 #bindsym $mod+c exec --no-startup-id rofi -modi "clipboard:greenclip print" -show clipboard \
 #       -config ~/.config/rofi/rofidmenu.rasi
 
-# Custom settings
-# ===
-
-# Setting monitor arrangement
-# Can use `xrandr -q` to find the monitor labels
+# Custom Settings
 exec --no-startup-id autorandr --change
 
-set $leftMonitor DP-2
-set $rightMonitor DP-4
+set $leftM DP-4
+set $rightM DP-2
 
-workspace 1 output $leftMonitor
-workspace 2 output $rightMonitor
-workspace 3 output $leftMonitor
+workspace 1 output $leftM
+workspace 2 output $leftM
 
-workspace 4 output $rightMonitor
-workspace 5 output $leftMonitor
-workspace 6 output $rightMonitor
-workspace 7 output $leftMonitor
+workspace 3 output $rightM
+workspace 4 output $rightM
+workspace 5 output $rightM
+workspace 6 output $rightM
+workspace 7 output $rightM
+workspace 8 output $rightM
+workspace 9 output $rightM
+workspace 10 output $rightM
 
-workspace 8 output $rightMonitor
-workspace 9 output $leftMonitor
-workspace 0 output $rightMonitor

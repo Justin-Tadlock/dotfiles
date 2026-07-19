@@ -6,7 +6,6 @@ numlockx
 picom
 shfmt
 starship
-sway
 tmux
 vim
 xrandr
