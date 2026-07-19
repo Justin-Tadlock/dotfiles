@@ -1,0 +1,18 @@
+#!/bin/bash
+
+if command -v npm; then
+	echo "Installing marksman.."
+	[[ ! -d ~/.local/bin ]] && mkdir -p ~/.local/bin
+	curl -Lo ~/.local/bin/marksman https://github.com/artempyanykh/marksman/releases/latest/download/marksman-linux-x64
+	chmod +x ~/.local/bin/marksman
+
+	echo "Installing @vtsls/language-server typescript bash-language-server.."
+	npm install -g @vtsls/language-server typescript bash-language-server
+
+	if ! command -v shfmt; then
+		echo "WARNING: shfmt not found. Bash LSP formatting features will be unavailable."
+	fi
+else
+	echo "ERROR: npm not found. Please install nvm and node before running again."
+	exit 1
+fi
