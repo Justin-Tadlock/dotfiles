@@ -1,0 +1,8 @@
+#!/bin/bash
+
+[[ ! -d ~/.local/bin ]] && mkdir -p ~/.local/bin
+
+curl -LO https://github.com/tree-sitter/tree-sitter/releases/latest/download/tree-sitter-linux-x64.gz
+gunzip tree-sitter-linux-x64.gz
+chmod +x tree-sitter-linux-x64
+mv tree-sitter-linux-x64 ~/.local/bin/tree-sitter
