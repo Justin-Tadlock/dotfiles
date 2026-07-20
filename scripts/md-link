@@ -1,0 +1,10 @@
+#!/bin/bash
+
+MD_TITLE="${1}"
+MD_URL="${2}"
+
+if [[ ! ${2} ]]; then
+  echo "[${MD_TITLE}](${MD_TITLE})"
+else
+  echo "[${MD_TITLE}](${MD_URL})"
+fi
