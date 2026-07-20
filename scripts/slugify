@@ -4,5 +4,7 @@
 read -r line
 line="${line,,}"
 line="${line//[^a-z0-9]/-}"
-line="${line//--/-}"
-echo "${line#-}"
+line="${line//+(-)/-}" # remove repeating '-' characters
+line="${line#-}"       # leading -
+line="${line%-}"       # remove trailing -
+echo "${line}"
