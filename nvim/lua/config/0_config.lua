@@ -74,6 +74,12 @@ map("n", "<C-l>", "<C-w>l", { desc = "Go to right window" })
 map("n", "<C-j>", "<C-w>j", { desc = "Go to lower window" })
 map("n", "<C-k>", "<C-w>k", { desc = "Go to upper window" })
 
+-- Window navigation from Claude-Code
+map("t", "<C-h>", "<C-\\><C-n><C-w>h", { desc = "Go to left window "})
+map("t", "<C-l>", "<C-\\><C-n><C-w>l", { desc = "Go to right window "})
+map("t", "<C-j>", "<C-\\><C-n><C-w>j", { desc = "Go to lower window "})
+map("t", "<C-k>", "<C-\\><C-n><C-w>k", { desc = "Go to upper window "})
+
 -- Buffers
 map("n", "<leader>bd", "<cmd>bdelete<cr>", { desc = "Delete buffer" })
 map("n", "<leader>bo", function()
