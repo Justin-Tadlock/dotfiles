@@ -1,0 +1,12 @@
+alacritty
+autorandr
+gnome-disk-utility
+neovim
+numlockx
+picom
+shfmt
+starship
+tmux
+vim
+xrandr
+shellcheck
