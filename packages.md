@@ -9,3 +9,4 @@ starship
 tmux
 vim
 xrandr
+shellcheck
