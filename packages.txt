@@ -10,3 +10,4 @@ tmux
 vim
 xrandr
 shellcheck
+ttf-jetbrains-mono-nerd
