@@ -39,6 +39,9 @@ require("snacks").setup({
       explorer = {
         auto_close = true,
       },
+      git_dif = {
+        group = true, -- group changes by file
+      },
     },
   },
   terminal = { enabled = true },
@@ -56,3 +59,6 @@ end, { desc = "File explorer" })
 
 vim.keymap.set({ "n", "t" }, "<C-_>", toggleTerminal, { desc = "Toggle terminal" })
 vim.keymap.set({ "n", "t" }, "<C-/>", toggleTerminal, { desc = "Toggle terminal" })
+
+vim.keymap.set({ "n" }, "<leader>gd", function() Snacks.picker.git_diff() end, { desc = "Git Diff (Hunks)" })
+vim.keymap.set({ "n" }, "<leader>gD", function() Snacks.picker.git_diff({ base = "origin", group = true }) end, { desc = "Git Diff (Origin)" })
