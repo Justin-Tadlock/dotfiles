@@ -46,10 +46,62 @@ vim.lsp.config("eslint", {
 		"package.json",
 		".git",
 	},
+  -- vscode-eslint-language-server assumes every one of these keys exists
+  -- (it does path/config resolution against them internally); leaving any
+  -- out causes "The 'path' argument must be of type scrint. Received
+  -- undefined" on textDocument/diagnostic requests.
 	settings = {
+    validate = "on",
+    packageManager = "npm",
+    useESLintClass = false,
 		-- Flip to false if a project pins ESLint < 9 with a legacy .eslintrc.
 		experimental = { useFlatConfig = true },
+    codeAction = {
+      disableRuleComment = { enable = true, location = "separateLine" },
+      showDocumentation = { enable = true },
+    },
+    codeActionOnSave = { enable = false, mode = "all" },
+    format = false,
+    quiet = false,
+    onIgnoredFiles = "off",
+    rulesCustomizations = {},
+    run = "onType",
+    problems = { shortenToSingleLine = false },
+    nodePath = "",
+    workingDirectory = { mode = "location" },
 	},
+  -- The server needs workspaceFolder explicitly; native vim.lsp.config
+  -- doesn't inject it the way the old nvim-lspconfig preset did.
+  on_init = function(client)
+    client.settings = vim.tbl_deep_extend("force", client.settings or {}, {
+      workspaceFolder = {
+        uri = vim.uri_from_fname(client.root_dir),
+        name = vim.fn.fnamemodify(client.root_dir, ":t"),
+      },
+    })
+  end,
+  handlers = {
+    ["eslint/openDoc"] = function(_, result)
+      if result then
+        vim.ui.open(result.url)
+      end
+      return {}
+    end,
+    ["eslint/confirmESLintExecution"] = function(_, result)
+      if not result then
+        return
+      end
+      return 4 -- approved
+    end,
+    ["eslint/probeFailed"] = function()
+      vim.notify("[lsp] ESLint probe failed.", vim.log.levels.WARN)
+      return {}
+    end,
+    ["eslint/noLibrary"] = function()
+      vim.notify("[lsp] Unable to find ESLint library.", vim.log.levels.WARN)
+      return {}
+    end,
+  },
 })
 
 vim.lsp.config("marksman", {
