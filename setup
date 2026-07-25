@@ -149,8 +149,8 @@ main() {
   # NeoVim Configs
   if "${is_installed}" nvim; then
     echo "Creating symLinks for nvim.."
-
     create_symlink "${script_dir}/nvim" "${HOME}/.config/nvim"
+    echo "Done." && echo ""
   fi
 
   # Claude-Code Configs
