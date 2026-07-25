@@ -72,6 +72,13 @@ if isInstalled i3; then
   symLinkDir "${SCRIPT_DIR}/i3-wm" ~/.config/i3
 fi
 
+# picom Configs
+if isInstalled picom; then
+  echo "Creating symLinks for picom.."
+  symLink "${SCRIPT_DIR}/picom/picom.conf" ~/.config/picom.conf
+  echo "Done." && echo ""
+fi
+
 # Starship Configs
 if isInstalled starship; then
   echo "Creating symLinks for starship.."

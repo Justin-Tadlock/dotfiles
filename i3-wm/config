@@ -417,7 +417,7 @@ exec_always $HOME/.config/i3/scripts/import-gsettings
 #exec_always --no-startup-id picom -b
 
 # for custom config:
-#exec_always --no-startup-id picom --config  ~/.config/picom.conf
+exec_always --no-startup-id picom --config  ~/.config/picom.conf
 
 
 ## applications/services
