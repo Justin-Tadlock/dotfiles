@@ -1,9 +1,8 @@
 #!/bin/bash
 
 flatpak install \
-com.github.tchx84.Flatseal \
-md.obsidian.Obsidian \
-com.valvesoftware.Steam \
-com.brave.Browser \
-com.discordapp.Discord \
-org.telegram.desktop
+  com.github.tchx84.Flatseal \
+  md.obsidian.Obsidian \
+  com.brave.Browser \
+  com.discordapp.Discord \
+  org.telegram.desktop

@@ -1,0 +1,84 @@
+#!/bin/bash
+#
+# Verify CLI requirements and install LazyVim, backing up existing Neovim config first.
+
+# err helper
+err() {
+  echo "[$(date +'%Y-%m-%dT%H:%M:%S%z')]: $*" >&2
+}
+
+check_requirements() {
+  # Check for requirements
+  echo "Checking for requirements.."
+
+  local -a requirements=(alacritty curl fd fzf gcc git lazygit nvim rg tree-sitter)
+  local -a missing_requirements=()
+
+  for requirement in "${requirements[@]}"; do
+    if ! "${is_installed}" "${requirement}"; then
+      err "WARNING: ${requirement} is not installed."
+      missing_requirements+=("${requirement}")
+    fi
+  done
+
+  if [[ "${#missing_requirements[@]}" -gt 0 ]]; then
+    echo ""
+    err "Requirements are not fulfilled."
+    err "Missing requirements: ${missing_requirements[*]}"
+    err "Aborting."
+    exit 1
+  fi
+
+  echo "All requirements are fulfilled."
+}
+
+backup_existing_config() {
+  if [[ -d ~/.config/nvim ]]; then
+    echo "Previous nvim config found. Backing up.."
+
+    # Remove the symlinks as they will inhibit the mv command
+    find "${HOME}/.config/nvim" -type l -delete
+
+    if ! mv "${HOME}/.config/nvim" "${HOME}/.config/nvim.bak"; then
+      err "Failed to back up existing nvim config."
+      exit 1
+    fi
+
+    echo "Successfully backed up previous config."
+  fi
+}
+
+install_lazyvim() {
+  echo "Cloning LazyVim starter template.."
+
+  if ! git clone https://github.com/LazyVim/starter "${HOME}/.config/nvim"; then
+    err "Failed to clone LazyVim starter template."
+    exit 1
+  fi
+
+  echo "Removing .git directory from the nvim config directory"
+  rm -rf ~/.config/nvim/.git
+
+  echo "Successfully installed LazyVim"
+}
+
+main() {
+  # Grabbing the script's directory
+  SCRIPT_PATH="$(realpath "${BASH_SOURCE[0]}")"
+  readonly SCRIPT_PATH
+  SCRIPT_DIR="$(dirname "${SCRIPT_PATH}")"
+  readonly SCRIPT_DIR
+
+  DOTFILES_SCRIPTS="$(dirname "$(dirname "${SCRIPT_DIR}")")/scripts"
+  readonly DOTFILES_SCRIPTS
+
+  chmod +x "${DOTFILES_SCRIPTS}"/is-installed
+  is_installed="${DOTFILES_SCRIPTS}/is-installed"
+  readonly is_installed
+
+  check_requirements
+  backup_existing_config
+  install_lazyvim
+}
+
+main "$@"

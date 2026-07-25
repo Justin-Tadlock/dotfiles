@@ -1,0 +1,10 @@
+alacritty
+curl
+fd
+fzf
+gcc
+git
+lazygit
+neovim
+ripgrep
+tree-sitter-cli
