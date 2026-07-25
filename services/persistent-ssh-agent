@@ -1,0 +1,45 @@
+#!/bin/bash
+
+if [[ ! "${1}" ]]; then
+  echo "Usage: persistent-ssh-agent key_file_name"
+  echo "Note: This script assumes ssh keys are stored at ~/.ssh (e.g., ~/.ssh/key_file_name)"
+  exit 1
+fi
+
+SYSTEMD_USER="${HOME}/.config/systemd/user"
+ENVIRONMENT_D="${HOME}/.config/environment.d"
+
+[[ ! -d "${SYSTEMD_USER}" ]] && mkdir -p "${SYSTEMD_USER}"
+[[ ! -d "${ENVIRONMENT_D}" ]] && mkdir -p "${ENVIRONMENT_D}"
+
+# Create SSH Agent as User Service
+echo """[Unit]
+Description=SSH key agent
+
+[Service]
+Type=simple
+Envrionment=SSH_AUTH_SOCK=%t/ssh-agent.socket
+ExecStart=/user/bin/ssh-agent -D -a $SSH_AUTH_SOCK
+
+[Install]
+WantedBy=default.target
+""" > "${SYSTEMD_USER}/ssh-agent.service"
+
+# Expose SSH Socket to GUI apps
+echo """SSH_AUTH_SOCK=\${XDG_RUNTIME_DIR}/ssh-agent.socket""" > "${ENVIRONMENT_D}/ssh_auth_socket.conf"
+
+# Enable the service
+systemctl --user enable --now ssh-agent.service
+
+# Auto load the key
+echo """Host github.com
+  IdentityFile ~/.ssh/"${1}"
+  AddKeysToAgent yes
+""" >> ~/.ssh/config 
+
+echo """Note:
+If you already had a \"Host github.com\" configuration within your ~/.ssh/config file
+for the provided SSH key file, you will have to go back and remove the duplicate entries."""
+
+echo """Persistent SSH agent service configured.
+Log out and back in to load the environment.d to finish setup."""
