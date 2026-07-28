@@ -146,10 +146,16 @@ main() {
     echo "Done." && echo ""
   fi
 
-  # NeoVim Configs
+  # AstroNvim Configs
   if "${is_installed}" nvim; then
-    echo "Creating symLinks for nvim.."
-    create_symlink "${script_dir}/nvim" "${HOME}/.config/nvim"
+    echo "Creating symLinks for AstroNvim.."
+    create_symlink "${script_dir}/astronvim" "${HOME}/.config/nvim"
+
+    echo "NOTE: For Claude Code to work in codecompanion you must do the following:"
+    echo '1. Run `npm install -g @agentclientprotocol/claude-agent-acp`'
+    echo '2. Run `claude setup-token` and copy the token for the next step.'
+    echo '3. Add `export CLAUDE_AUTH_TOKEN="TokenFromClaudeSetupTokenStep"` to your ~/.bashrc file or equivalent'
+
     echo "Done." && echo ""
   fi
 
