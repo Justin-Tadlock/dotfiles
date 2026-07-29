@@ -98,7 +98,7 @@ main() {
   # i3 Configs
   if "${is_installed}" i3; then
     echo "Creating symLinks for i3.."
-    symlink_dir_files "${script_dir}/i3-wm" "${HOME}/.config/i3"
+    create_symlink "${script_dir}/i3-wm" "${HOME}/.config/i3"
   fi
 
   # picom Configs
