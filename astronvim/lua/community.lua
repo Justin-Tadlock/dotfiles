@@ -7,5 +7,6 @@ return {
   "AstroNvim/astrocommunity",
   { import = "astrocommunity.pack.lua" },
   -- import/override with your plugins folder
-  { import = "astrocommunity.ai.codecompanion-nvim" },
+  -- uncomment the following to enable codecompanion
+  --{ import = "astrocommunity.ai.codecompanion-nvim" },
 }

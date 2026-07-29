@@ -1,20 +1,23 @@
+-- Remove when intending to use local LLMs or an ACP LLM
+if true then return {} end
+
 return {
   "olimorris/codecompanion.nvim",
-  opts = {
-    adapters = {
-      acp = {
-        claude_code = function()
-          return require("codecompanion.adapters").extend("claude_code", {
-            commands = {
-              default = { "claude-agent-acp", "--acp" },
-            },
-            env = {
-              CLAUDE_AUTH_TOKEN = "cmd:echo ${CLAUDE_AUTH_TOKEN}",
-            },
-          })
-        end,
-      },
+  keys = {
+    {
+      "<leader>ai",
+      function() require("codecompanion").toggle() end,
+      desc = "Toggle CodeCompanion CLI",
+      mode = { "n", "v" },
     },
+    {
+      "<leader>aa",
+      function() require("codecompanion").cli("#{this}", { focus = false }) end,
+      desc = "Add current buffer/selection to CLI agent",
+      mode = { "n", "v" },
+    },
+  },
+  opts = {
     display = {
       chat = {
         window = {
@@ -25,6 +28,17 @@ return {
     interactions = {
       chat = {
         adapter = "claude_code",
+      },
+      cli = {
+        agent = "claude_code",
+        agents = {
+          claude_code = {
+            cmd = "claude",
+            args = {},
+            description = "Claude Code CLI",
+            provider = "terminal",
+          },
+        },
       },
     },
   },
