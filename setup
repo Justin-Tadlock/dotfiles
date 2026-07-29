@@ -99,6 +99,14 @@ main() {
   if "${is_installed}" i3; then
     echo "Creating symLinks for i3.."
     create_symlink "${script_dir}/i3-wm" "${HOME}/.config/i3"
+    echo "Done." && echo ""
+  fi
+
+  # rofi Configs
+  if "${is_installed}" rofi; then
+    echo "Creating symLinks for rofi.."
+    create_symlink "${script_dir}/rofi" "${HOME}/.config/rofi"
+    echo "Done." && echo ""
   fi
 
   # picom Configs
