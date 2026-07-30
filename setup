@@ -26,6 +26,14 @@ get_os_type() {
   fi
 }
 
+clean_previous_links() {
+  local target_path="${1}"
+
+  if [[ -e "${target_path}" ]]; then
+    find "${target_path}" -type l -delete
+  fi
+}
+
 create_symlink() {
   local origin_path="$1"
   local target_path="$2"
@@ -33,6 +41,8 @@ create_symlink() {
   if [[ ! -e "${origin_path}" ]]; then
     echo "create_symlink: Invalid origin path: ${origin_path}" >&2
   else
+
+    clean_previous_links "${target_path}"
 
     if [[ -e "${target_path}" && ! -L "${target_path}" ]]; then
       mv "${target_path}" "${target_path}.bak"
