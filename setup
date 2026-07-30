@@ -106,7 +106,7 @@ main() {
   if "${is_installed}" rofi; then
     echo "Creating symLinks for rofi.."
     create_symlink "${script_dir}/rofi" "${HOME}/.config/rofi"
-    create_symLink "${script_dir}/.local/share/rofi/themes" "${HOME}/.local/share/rofi/themes"
+    create_symlink "${script_dir}/.local/share/rofi/themes" "${HOME}/.local/share/rofi/themes"
     echo "Done." && echo ""
   fi
 
