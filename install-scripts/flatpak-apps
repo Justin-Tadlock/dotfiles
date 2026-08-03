@@ -5,4 +5,10 @@ flatpak install \
   md.obsidian.Obsidian \
   com.brave.Browser \
   com.discordapp.Discord \
-  org.telegram.desktop
+  org.telegram.desktop \
+  com.spotify.Client \
+  com.valvesoftware.Steam \
+  io.github.limo_app.limo \
+  net.davidotek.pupgui2 \
+  org.dupot.easyflatpak \
+  org.videolan.VLC
