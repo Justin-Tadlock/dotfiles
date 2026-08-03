@@ -109,6 +109,20 @@ main() {
   if "${is_installed}" i3; then
     echo "Creating symLinks for i3.."
     create_symlink "${script_dir}/i3-wm" "${HOME}/.config/i3"
+
+    # picom Configs
+    if "${is_installed}" picom; then
+      create_symlink "${script_dir}/picom/picom.conf" "${HOME}/.config/picom.conf"
+    fi
+
+    echo "Done." && echo ""
+  fi
+
+  # sway Configs
+  if "${is_installed}" sway; then
+
+    echo "Creating symLinks for sway.."
+    create_symlink "${script_dir}/sway" "${HOME}/.config/sway"
     echo "Done." && echo ""
   fi
 
@@ -117,13 +131,6 @@ main() {
     echo "Creating symLinks for rofi.."
     create_symlink "${script_dir}/rofi" "${HOME}/.config/rofi"
     create_symlink "${script_dir}/.local/share/rofi/themes" "${HOME}/.local/share/rofi/themes"
-    echo "Done." && echo ""
-  fi
-
-  # picom Configs
-  if "${is_installed}" picom; then
-    echo "Creating symLinks for picom.."
-    create_symlink "${script_dir}/picom/picom.conf" "${HOME}/.config/picom.conf"
     echo "Done." && echo ""
   fi
 
