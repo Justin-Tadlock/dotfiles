@@ -89,6 +89,9 @@ exec swayidle -w \
 
     # Lock sway
     bindsym $mod+Ctrl+l exec swaylock -f -c 000000
+
+    # Numlockx actication
+    exec --no-startup-id numlockx on
 #
 # Moving around:
 #

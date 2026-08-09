@@ -99,6 +99,8 @@ main() {
   script_path="$(realpath "${BASH_SOURCE[0]}")"
   local script_dir
   script_dir="$(dirname "${script_path}")"
+  local script_config_dir
+  script_config_dir="${script_dir}/config"
 
   # Shorthand function for checking if software is installed
   chmod +x "${script_dir}/scripts/is-installed"
@@ -108,11 +110,11 @@ main() {
   # i3 Configs
   if "${is_installed}" i3; then
     echo "Creating symLinks for i3.."
-    create_symlink "${script_dir}/i3-wm" "${HOME}/.config/i3"
+    create_symlink "${script_config_dir}/i3-wm" "${HOME}/.config/i3"
 
     # picom Configs
     if "${is_installed}" picom; then
-      create_symlink "${script_dir}/picom/picom.conf" "${HOME}/.config/picom.conf"
+      create_symlink "${script_config_dir}/picom/picom.conf" "${HOME}/.config/picom.conf"
     fi
 
     echo "Done." && echo ""
@@ -122,22 +124,22 @@ main() {
   if "${is_installed}" sway; then
 
     echo "Creating symLinks for sway.."
-    create_symlink "${script_dir}/sway" "${HOME}/.config/sway"
+    create_symlink "${script_config_dir}/sway" "${HOME}/.config/sway"
     echo "Done." && echo ""
   fi
 
   # rofi Configs
   if "${is_installed}" rofi; then
     echo "Creating symLinks for rofi.."
-    create_symlink "${script_dir}/rofi" "${HOME}/.config/rofi"
-    create_symlink "${script_dir}/.local/share/rofi/themes" "${HOME}/.local/share/rofi/themes"
+    create_symlink "${script_config_dir}/rofi" "${HOME}/.config/rofi"
+    create_symlink "${script_config_dir}/.local/share/rofi/themes" "${HOME}/.local/share/rofi/themes"
     echo "Done." && echo ""
   fi
 
   # Starship Configs
   if "${is_installed}" starship; then
     echo "Creating symLinks for starship.."
-    create_symlink "${script_dir}/starship/starship.toml" "${HOME}/.config/starship.toml"
+    create_symlink "${script_config_dir}/starship/starship.toml" "${HOME}/.config/starship.toml"
     echo "NOTE: Starship requires adding \`eval \"\$(starship init bash)\"\` to your ~/.bashrc file"
     echo "Done." && echo ""
   fi
@@ -145,15 +147,14 @@ main() {
   # Tmux Configs
   if "${is_installed}" tmux; then
     echo "Creating symLinks for tmux.."
-    create_symlink "${script_dir}/tmux/tmux.conf" "${HOME}/.tmux.conf"
+    create_symlink "${script_config_dir}/tmux/tmux.conf" "${HOME}/.tmux.conf"
     echo "Done." && echo ""
   fi
 
   # Alacritty Configs
   if "${is_installed}" alacritty; then
     echo "Creating symLinks for alacritty.."
-    [[ ! -d ~/.config/alacritty ]] && mkdir -p "${HOME}/.config/alacritty"
-    create_symlink "${script_dir}/alacritty/alacritty.toml" "${HOME}/.config/alacritty/alacritty.toml"
+    create_symlink "${script_config_dir}/alacritty/alacritty.toml" "${HOME}/.config/alacritty/alacritty.toml"
     echo "Done." && echo ""
   fi
 
@@ -168,21 +169,21 @@ main() {
   # Vimrc Configs
   if "${is_installed}" vim; then
     echo "Creating symLinks for vimrc.."
-    create_symlink "${script_dir}/vimrc/${os_type}-vimrc" "${HOME}/.vimrc"
+    create_symlink "${script_config_dir}/vimrc/${os_type}-vimrc" "${HOME}/.vimrc"
     echo "Done." && echo ""
   fi
 
-  # AstroNvim Configs
+  # Nvim Configs
   if "${is_installed}" nvim; then
-    echo "Creating symLinks for AstroNvim.."
-    create_symlink "${script_dir}/astronvim" "${HOME}/.config/nvim"
+    echo "Creating symLinks for Nvim.."
+    create_symlink "${script_config_dir}/lazyvim" "${HOME}/.config/nvim"
     echo "Done." && echo ""
   fi
 
   # Claude-Code Configs
   if "${is_installed}" claude; then
     echo "Creating symLinks for Claude-Code.."
-    [[ -d "${HOME}/.claude" ]] && create_symlink "${script_dir}/claude/CLAUDE.md" "${HOME}/.claude/CLAUDE.md"
+    [[ -d "${HOME}/.claude" ]] && create_symlink "${script_config_dir}/claude/CLAUDE.md" "${HOME}/.claude/CLAUDE.md"
     echo "Done." && echo ""
   fi
 
