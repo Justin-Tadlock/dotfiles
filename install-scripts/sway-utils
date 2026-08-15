@@ -1,0 +1,47 @@
+#!/bin/bash
+
+main() {
+  # Grabbing the script's directory
+  local script_path
+  script_path="$(realpath "${BASH_SOURCE[0]}")"
+  local script_dir
+  script_dir="$(dirname "${script_path}")"
+  local script_parent_dir
+  script_parent_dir="$(dirname "${script_dir}")"
+
+  # Shorthand function for checking if software is installed
+  chmod +x "${script_parent_dir}/scripts/is-installed"
+  local is_installed
+  is_installed="${script_parent_dir}/scripts/is-installed"
+
+  local run_install
+  run_install="false"
+
+  echo "Checking for sway dependencies.."
+  if ! "${is_installed}" grim; then
+    run_install="true"
+  fi
+
+  if ! "${is_installed}" slurp; then
+    run_install="true"
+  fi
+
+  if ! "${is_installed}" wl-copy; then
+    run_install="true"
+  fi
+
+  if ! "${is_installed}" grimshot; then
+    run_install="true"
+  fi
+
+  if [[ "${run_install}" == "true" ]]; then
+    echo "Missing dependencies, running install.."
+    sudo pacman -Syu grim slurp wl-clipboard sway-contrib
+  else
+    echo "No missing dependencies found."
+  fi
+
+  echo ""
+}
+
+main "$@"

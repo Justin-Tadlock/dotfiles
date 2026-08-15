@@ -122,6 +122,7 @@ main() {
 
   # sway Configs
   if "${is_installed}" sway; then
+    "${script_dir}/install-scripts/sway-utils"
 
     echo "Creating symLinks for sway.."
     create_symlink "${script_config_dir}/sway" "${HOME}/.config/sway"

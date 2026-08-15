@@ -176,7 +176,7 @@ exec swayidle -w \
     assign [app_id="foot"] $ws3
     assign [app_id="Alacritty"] $ws3
     assign [app_id="IBKR Desktop"] $ws4
-    assign [app_id="steam"] $ws5
+    assign [class="steam"] $ws5
 
     # automatic set focus new window if it opens on another workspace than the current:
     for_window [app_id="brave-browser"] focus
@@ -189,7 +189,7 @@ exec swayidle -w \
     for_window [app_id=foot] focus
     for_window [app_id=Alacritty] focus
     for_window [app_id="IBKR Desktop"] focus
-    for_window [app_id=steam] focus
+    for_window [class=steam] focus
 
     # Switch to workspace
     bindsym $mod+1 workspace $ws1
@@ -299,6 +299,12 @@ bindsym $mod+r mode "resize"
 
     # Special key to take a screenshot with grim
     bindsym Print exec grim
+
+    # Screenshot active window to XDG_SCREENSHOTS_DIR
+    bindsym Ctrl+Print exec grimshot save active
+
+    # Screenshot region select -> clipboard
+    bindsym Shift+Print exec grimshot copy area
 
 #
 # Status Bar:
