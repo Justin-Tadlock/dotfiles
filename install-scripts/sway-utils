@@ -17,26 +17,21 @@ main() {
   local run_install
   run_install="false"
 
+  local -a dependencies
+  dependencies=(grim slurp wl-copy grimshot swayidle swaylock)
+
   echo "Checking for sway dependencies.."
-  if ! "${is_installed}" grim; then
-    run_install="true"
-  fi
-
-  if ! "${is_installed}" slurp; then
-    run_install="true"
-  fi
-
-  if ! "${is_installed}" wl-copy; then
-    run_install="true"
-  fi
-
-  if ! "${is_installed}" grimshot; then
-    run_install="true"
-  fi
+  for dep in "${dependencies[@]}"; do
+    echo "Checking for ${dep}.."
+    if ! "${is_installed}" "${dep}"; then
+      run_install="true"
+      break
+    fi
+  done
 
   if [[ "${run_install}" == "true" ]]; then
     echo "Missing dependencies, running install.."
-    sudo pacman -Syu grim slurp wl-clipboard sway-contrib
+    sudo pacman -Syu grim slurp wl-clipboard sway-contrib swayidle swaylock
   else
     echo "No missing dependencies found."
   fi
