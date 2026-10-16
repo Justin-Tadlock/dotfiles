@@ -18,6 +18,11 @@ Do NOT write any code yet. Instead, collaborate with the user to refine the plan
 - Ask clarifying questions about anything ambiguous — especially around data flow, role-based access, error handling, and edge cases.
 - Point out any inconsistencies or gaps in the plan.
 - Suggest alternatives when a proposed approach conflicts with existing patterns or project preferences.
+- Think like a penetration tester to find holes in the designs and make sure that the proposed designs are rock-solid.
+- Apply the "Security & Penetration-Testing Standards" section below to every proposed interface, function, route, and GraphQL operation. For each one, explicitly state:
+  - **Trust boundary:** where untrusted input enters and where it is validated.
+  - **Authorization:** who may call it, and how ownership/tenant scoping is enforced server-side.
+  - **Abuse cases:** at least the relevant attacks (IDOR, privilege escalation, mass assignment, filter bypass, injection, enumeration) and how the design blocks each.
 
 Iterate on this discussion until the user explicitly signals they are satisfied and ready to proceed.
 
@@ -26,6 +31,8 @@ Iterate on this discussion until the user explicitly signals they are satisfied 
 Only begin writing code after the user says one of the following phrases, "Let's implement", "Start implementing".
 
 Follow the agreed design from the brainstorming phase. Do not introduce new abstractions or deviate from the plan without flagging it first.
+
+Implement the validation and authorization agreed in the design as part of the feature, not as a follow-up. Write tests for the abuse cases identified during brainstorming (e.g., another user's ID, a missing role, malformed input, a forbidden filter field) alongside the happy-path tests.
 
 ---
 
@@ -55,6 +62,52 @@ In order of priority:
 - Prefer REST best practices and standards.
 - Prefer async/await functions over .then() chaining in javascript and TypeScript projects
 
+### Security & Penetration-Testing Standards
+
+Design and write all code as if it will be penetration tested. Treat every value that crosses a trust boundary (HTTP requests, GraphQL arguments, URL/query params, headers, cookies, form data, webhooks, message queues, files, third-party API responses, and data read from storage that users can write) as hostile until validated.
+
+#### Input Validation
+
+- Validate at the boundary with a runtime schema (use the project's existing validation library, or native checks if none exists). TypeScript types alone are not validation.
+- Use allow-lists, not deny-lists: explicit allowed fields, enums, formats, lengths, numeric ranges, and array sizes.
+- Reject unknown fields rather than silently passing them through (prevents mass assignment, e.g., a client setting `role`, `ownerId`, `isAdmin`, `tenantId`, or `createdAt`).
+- Map validated input to explicit internal types/DTOs; never spread raw request bodies into database writes or downstream calls.
+- Internal functions should take narrow, already-validated types so invalid states are unrepresentable (e.g., branded IDs, discriminated unions) rather than re-checking loosely typed input.
+- Use parameterized queries / ORM bindings only; never build SQL, NoSQL, shell commands, file paths, regexes, or URLs by concatenating user input. Guard against path traversal and SSRF where paths or URLs are user-influenced.
+- Fail closed: on validation or auth failure, reject the request; never fall back to a permissive default.
+
+#### Authorization & Data Access
+
+- Authenticate and authorize on the server for every request; never rely on the UI hiding something, client-side role checks, or obscure IDs.
+- Derive identity (user ID, tenant/org ID, roles) from the verified session/token only; never trust identity or ownership values supplied by the client.
+- Check authorization against the specific resource, not just the operation (prevent IDOR): "can this user read/modify *this* record?"
+- Scope queries at the data layer (e.g., `WHERE owner_id = :sessionUserId AND tenant_id = :sessionTenantId`) instead of fetching first and filtering afterward.
+- For updates/deletes, verify ownership in the same query or transaction as the write to avoid TOCTOU races.
+- Apply least privilege for roles, service accounts, API keys, and database users.
+- Return the same response for "not found" and "not authorized" where existence itself is sensitive, to prevent enumeration.
+
+#### GraphQL-Specific
+
+- Enforce authorization in resolvers (or a shared auth layer/directive applied consistently), including field-level checks on sensitive fields and nested/relationship resolvers — not only on the top-level query.
+- Server-side scoping filters (owner, tenant, visibility, soft-delete) must be applied unconditionally and combined with `AND` so client-supplied filters cannot override, widen, or `OR` around them.
+- Allow-list which fields are filterable and sortable, and which operators are allowed per field; never pass client filter objects straight through to the ORM/database (prevents filtering or sorting on hidden fields such as `passwordHash`, `role`, or another tenant's data, and blocks operator injection like `$where`/`$regex`).
+- Mutation inputs must not include server-controlled fields (owner, tenant, role, status transitions the user may not perform); validate allowed state transitions explicitly.
+- Enforce pagination limits, query depth/complexity limits, and batching/alias limits to prevent resource exhaustion and data scraping.
+- Ensure DataLoaders and caches are keyed per request/user so data never leaks between users.
+- Disable introspection and verbose errors in production unless intentionally exposed.
+
+#### Errors, Logging & Secrets
+
+- Never leak stack traces, SQL, internal IDs, or validation internals to clients; return generic messages and log details server-side.
+- Never log secrets, tokens, passwords, or sensitive PII.
+- No hard-coded secrets; read them from environment/secret management.
+
+#### Front-end
+
+- Avoid `dangerouslySetInnerHTML` and unsanitized HTML/URLs (including `javascript:` URLs); validate redirects against an allow-list to prevent open redirects.
+- Never expose secrets via public env vars (e.g., `NEXT_PUBLIC_*`); keep privileged logic in server components, route handlers, or server actions — and authorize server actions like any other public endpoint.
+- Protect cookie-based state-changing requests against CSRF; use `HttpOnly`, `Secure`, and `SameSite` cookies.
+
 ## "Review PR" Workflow
 
 When the user says "Review PR", follow these steps in order:
@@ -79,6 +132,21 @@ Correctness
 - Injection risks, missing input validation
 - Hard-coded secrets or credentials
 - Auth/permission checks missing or incorrectly applied
+
+Security (Penetration-Test Review)
+
+Review the diff as an attacker would, against the "Security & Penetration-Testing Standards" section. For each new or changed entry point, try to break it:
+
+- Can input bypass validation (unknown fields, wrong types, oversized values, unexpected enums, null/empty, unicode/encoding tricks)?
+- Can a user read, modify, or delete another user's or tenant's data by changing an ID, filter, sort, or nested selection (IDOR)?
+- Can a client-supplied GraphQL filter widen, override, or `OR` around server-enforced scoping, or filter/sort on fields it shouldn't see?
+- Can a mutation set server-controlled fields (owner, tenant, role, status) or perform a disallowed state transition (mass assignment / privilege escalation)?
+- Are nested resolvers, field resolvers, and DataLoaders authorized and scoped per user?
+- Are pagination, depth, and complexity limits enforced?
+- Do errors or responses leak internal details or reveal whether a resource exists?
+- Are there tests that prove the abuse cases are rejected, not just that the happy path works?
+
+Any missing authorization, scoping bypass, or exploitable validation gap is 🔴 Critical.
 
 Code Quality
 
