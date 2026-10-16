@@ -65,6 +65,18 @@ In order of priority:
 - Prefer REST best practices and standards.
 - Prefer async/await functions over .then() chaining in javascript and TypeScript projects
 
+### Correctness & Resilience Checklist
+
+Every piece of code written or edited must meet this bar. Apply it twice: during brainstorming (enumerate the paths: success, failure, partial failure, empty/loading, concurrency/races) and as a final adversarial self-review of the finished diff before calling the work done, not only when a reviewer flags something.
+
+- **Simplicity & reuse:** Use the smallest solution that solves the actual problem. Before adding an abstraction, parallel code path, service method, or plumbing layer, look for an existing mechanism that already does the job and extend it.
+- **Separation of concerns:** Keep routes thin, controllers/hooks focused on orchestration, and data access (DB, REST, GraphQL, caches) separate from business and presentation logic, so a bug is clearly either "the data layer returns/stores the wrong thing" or "the consumer handles it wrong", never both tangled together. Pass deeply needed state via props, dependency injection, or context, not side-channel refs or globals.
+- **Termination:** Every retry loop, polling loop, effect-driven state machine, cron job, or queue consumer must have a provably terminating condition and must not wait on a state that may never occur. Guard against overlapping runs.
+- **Defensive boundaries:** Validate the runtime shape of data at system boundaries (requests, DB results, tokens/claims, external API responses, cached data). A TypeScript type is not proof a value exists. When coalescing (`??`, `||`, defaults), confirm the fallback does not mask a materially different state ("unknown" vs. "zero", "errored" vs. "not found").
+- **Async error paths:** Every async function and promise has a real catch path that produces a typed, meaningful error (server) or visible feedback with a retry where sensible (client). No bare `await` in handlers. Do not hold a transaction open across an external call.
+- **Feedback on every path:** Every reachable path (success, validation failure, not-found, error, partial failure) returns a correctly typed, meaningful response or UI state: loading indicators, disabled in-flight controls, success/error messages. A success status with an ambiguous or empty body on failure is a bug.
+- **Testability:** Structure code so the above can be unit tested in isolation: pure functions for logic, mockable data/external-API modules, and hooks/components that don't need the whole app mounted.
+
 ### Security & Penetration-Testing Standards
 
 Design and write all code as if it will be penetration tested. Treat every value that crosses a trust boundary (HTTP requests, GraphQL arguments, URL/query params, headers, cookies, form data, webhooks, message queues, files, third-party API responses, and data read from storage that users can write) as hostile until validated.
@@ -245,11 +257,11 @@ Run the Capture steps when any of these happen:
 3. **Deduplicate.** If an existing entry has the same root cause, increment **Seen**, append the source and month, and sharpen the rule if needed instead of adding a new entry.
 4. **Sanitize.** Apply every Sanitization Rule below, then the leak test.
 5. **Propose.** Show the user the exact new or changed entry text and wait for approval. Never write without approval.
-6. **Write and back up.** After approval, write the entry (using the next ID from the marker comment, and updating it), then commit only that file and push:
+6. **Write and commit.** After approval, write the entry (using the next ID from the marker comment, and updating it), then commit only that file:
    - `git -C ~/dotfiles add config/claude/lessons/coding-lessons.md`
    - `git -C ~/dotfiles commit -m "lessons: <add|update> L-NNN <generic title>"`
-   - `git -C ~/dotfiles push`
-   - Never stage other files in the dotfiles repo as part of this step. If the push fails, report it; do not force-push.
+   - Never stage other files in the dotfiles repo as part of this step.
+   - Do NOT push. The user pushes manually; remind them that there are unpushed lesson commits.
 
 Skip one-off slips (typos, a wrong variable name) that do not reflect a reusable mistake.
 
@@ -280,4 +292,5 @@ Allowed: public languages, frameworks, and libraries (e.g., TypeScript, React, N
 
 - When a lesson reaches **Seen: 3**, propose promoting its rule into the permanent standards sections of this file and removing the entry from the lessons file.
 - Keep the lessons file under ~40 entries. When it grows past that, propose merging overlapping entries and removing ones that have been promoted or no longer apply.
-- Curation changes follow the same propose → approve → commit → push flow as Capture.
+- Curation changes follow the same propose → approve → commit flow as Capture.
+- Project-level memory is for project-specific context only. Generic coding lessons always go to the global lessons file, never to a project's memory.
