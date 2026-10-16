@@ -20,7 +20,7 @@ Entry format:
 ---
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching" -->
-<!-- Lessons start below. Next ID: L-010 -->
+<!-- Lessons start below. Next ID: L-012 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -84,4 +84,20 @@ Entry format:
 - **Root cause:** Reviewed the filter/check expressions in isolation without asking whether the write itself can change the facts the check relies on.
 - **Rule:** For any table that grants access (memberships, assignments, roles), deny writes to its foreign-key columns for the roles it scopes, and test that a role cannot reassign itself.
 - **Check:** For each insert/update permission in the diff, list the columns the check depends on through relationships; flag any that are writable by the same role, especially on membership/assignment tables.
+- **Seen:** 1 (pr-review, 2026-10)
+
+### L-010: Structural policy test matched a required clause at any depth
+- **Area:** testing, authorization
+- **Pattern:** A test asserting "every permission rule requires clause X" searched the whole expression tree for X, so X under an unrelated relationship, or under a negation/disjunction, satisfied it without enforcing the intended scope.
+- **Root cause:** Wrote the matcher for the shapes that existed, not for the shapes an incorrect rule could take.
+- **Rule:** Policy-lint tests must match the required clause only at the specific path that gives the scoping meaning, and reject it under `not`/`or`/other relationships. Include negative fixtures for each bypass shape.
+- **Check:** For each recursive matcher in a policy test, try writing a rule that passes the matcher but doesn't enforce the policy; if one exists, flag it.
+- **Seen:** 1 (pr-review, 2026-10)
+
+### L-011: Authorization queries tested only against a mocked database
+- **Area:** authorization, testing
+- **Pattern:** Access-check helpers built from SQL joins were unit-tested with a mocked query function, so the tests checked the branching but never the joins and predicates that actually enforce access.
+- **Root cause:** Treated the SQL as plumbing rather than as the security boundary itself.
+- **Rule:** When the authorization decision is made in a query, add an integration test against a real database with seeded allowed/denied fixtures for each role, including inactive users and cross-tenant rows.
+- **Check:** For each new access-check function whose result comes from a query, confirm an integration test runs that query against real data.
 - **Seen:** 1 (pr-review, 2026-10)
