@@ -185,6 +185,7 @@ main() {
   if "${is_installed}" claude; then
     echo "Creating symLinks for Claude-Code.."
     [[ -d "${HOME}/.claude" ]] && create_symlink "${script_config_dir}/claude/CLAUDE.md" "${HOME}/.claude/CLAUDE.md"
+    [[ -d "${HOME}/.claude" ]] && create_symlink "${script_config_dir}/claude/lessons" "${HOME}/.claude/lessons"
     echo "Done." && echo ""
   fi
 

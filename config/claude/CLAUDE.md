@@ -23,6 +23,7 @@ Do NOT write any code yet. Instead, collaborate with the user to refine the plan
   - **Trust boundary:** where untrusted input enters and where it is validated.
   - **Authorization:** who may call it, and how ownership/tenant scoping is enforced server-side.
   - **Abuse cases:** at least the relevant attacks (IDOR, privilege escalation, mass assignment, filter bypass, injection, enumeration) and how the design blocks each.
+- Review the "Coding Lessons Learned" file and call out any lessons relevant to this design.
 
 Iterate on this discussion until the user explicitly signals they are satisfied and ready to proceed.
 
@@ -33,6 +34,8 @@ Only begin writing code after the user says one of the following phrases, "Let's
 Follow the agreed design from the brainstorming phase. Do not introduce new abstractions or deviate from the plan without flagging it first.
 
 Implement the validation and authorization agreed in the design as part of the feature, not as a follow-up. Write tests for the abuse cases identified during brainstorming (e.g., another user's ID, a missing role, malformed input, a forbidden filter field) alongside the happy-path tests.
+
+Before declaring implementation complete, run the **Check** of every relevant lesson in the "Coding Lessons Learned" file against the diff and fix any hits.
 
 ---
 
@@ -178,6 +181,10 @@ Refactor Opportunities
 
 - Note any existing code touched by this PR that could be improved, without blocking the review.
 
+Lessons Learned
+
+- Run the **Check** of every lesson in the "Coding Lessons Learned" file against the diff. Report hits as normal issues, tagged with the lesson ID (e.g., `[L-004]`).
+
 ### 3. Report Phase
 
 Present findings in the following format:
@@ -207,3 +214,70 @@ One of:
 - ✅ Ready to push — No critical issues found
 - ⚠️ Push with caution — Warnings present but no blockers
 - 🚫 Do not push — Critical issues must be resolved first
+
+### 4. Capture Lessons
+
+After the report, follow the "Capture" steps of the "Lessons Learned" workflow for any 🔴 or 🟡 issue in code Claude wrote.
+
+## "Lessons Learned" Workflow
+
+Turns review findings into generic, reusable rules so the same class of mistake is not repeated. Lessons live in a single global file that is backed up to a **public** git repository, so every lesson must be fully sanitized.
+
+The lessons file is imported here:
+
+@~/.claude/lessons/coding-lessons.md
+
+(Physical location: `~/dotfiles/config/claude/lessons/coding-lessons.md`, symlinked to `~/.claude/lessons`.)
+
+### Triggers
+
+Run the Capture steps when any of these happen:
+
+- A "Review PR" finds a 🔴 or 🟡 issue in code Claude wrote.
+- The user gives review feedback (their own or a teammate's PR comments) on code Claude wrote.
+- Claude finds a defect in its own code during self-review, testing, or debugging.
+- The user says "Capture lesson".
+
+### Capture
+
+1. **Find the root cause.** Ask "why did I write it this way?" until reaching the faulty assumption or skipped step, not the symptom. "Missing auth check on route X" is a symptom; "assumed shared middleware covered every route without verifying" is a root cause.
+2. **Generalize.** Restate the mistake and the rule so they apply to any codebase using the same language, framework, or pattern. If the lesson only makes sense with project context, it is not a lesson: skip it.
+3. **Deduplicate.** If an existing entry has the same root cause, increment **Seen**, append the source and month, and sharpen the rule if needed instead of adding a new entry.
+4. **Sanitize.** Apply every Sanitization Rule below, then the leak test.
+5. **Propose.** Show the user the exact new or changed entry text and wait for approval. Never write without approval.
+6. **Write and back up.** After approval, write the entry (using the next ID from the marker comment, and updating it), then commit only that file and push:
+   - `git -C ~/dotfiles add config/claude/lessons/coding-lessons.md`
+   - `git -C ~/dotfiles commit -m "lessons: <add|update> L-NNN <generic title>"`
+   - `git -C ~/dotfiles push`
+   - Never stage other files in the dotfiles repo as part of this step. If the push fails, report it; do not force-push.
+
+Skip one-off slips (typos, a wrong variable name) that do not reflect a reusable mistake.
+
+### Sanitization Rules
+
+Lessons are public and must be NDA-safe. An entry must NOT contain:
+
+- Names of companies, clients, employers, products, projects, repositories, teams, internal services, internal packages, or codenames.
+- People's names, usernames, or emails.
+- File paths, branch names, PR/issue/ticket numbers, commit hashes, URLs, domains, IP addresses, or hostnames.
+- Database, table, collection, column, queue, topic, or environment variable names from a project.
+- API endpoint paths, GraphQL type/field names, or other schema details from a project.
+- Business rules, domain concepts, feature names, or data that hints at what the product does.
+- Code copied or paraphrased from a project. Examples must be written fresh, a few lines at most, using neutral placeholders (`resource`, `item`, `userId`, `fetchThing`).
+- Secrets, credentials, tokens, or data samples of any kind.
+
+Allowed: public languages, frameworks, and libraries (e.g., TypeScript, React, Next.js, vitest, Zod, Prisma), general patterns and vulnerability classes (IDOR, TOCTOU, mass assignment), and a month-level date with a source type.
+
+**Leak test:** before proposing, ask "Could someone who knows my employer or clients recognize the project, product, or codebase from this entry?" If yes, or unsure, generalize further or drop it.
+
+### Apply
+
+- **Start Task:** during brainstorming, list the lessons relevant to the design.
+- **Implementation:** before declaring done, run each relevant lesson's **Check** against the diff.
+- **Review PR:** run every lesson's **Check** as part of the review.
+
+### Curate
+
+- When a lesson reaches **Seen: 3**, propose promoting its rule into the permanent standards sections of this file and removing the entry from the lessons file.
+- Keep the lessons file under ~40 entries. When it grows past that, propose merging overlapping entries and removing ones that have been promoted or no longer apply.
+- Curation changes follow the same propose → approve → commit → push flow as Capture.
