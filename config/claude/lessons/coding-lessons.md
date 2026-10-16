@@ -20,7 +20,7 @@ Entry format:
 ---
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching" -->
-<!-- Lessons start below. Next ID: L-008 -->
+<!-- Lessons start below. Next ID: L-010 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -69,3 +69,19 @@ Entry format:
 - **Rule:** When a value from an external response is wrong, inspect a real captured payload before hypothesizing. Validate external responses at the boundary with a runtime schema, and fix stale types once confirmed.
 - **Check:** For new reads of external response fields in the diff, confirm a runtime schema or verified sample backs the declared type.
 - **Seen:** 1 (self-review, 2026-08)
+
+### L-008: Authorized a sanitized copy of the input but acted on the raw input
+- **Area:** authorization, validation
+- **Pattern:** An access-check helper filtered out malformed ids (wrong type, null) before checking, then returned "allowed" for the remainder; the caller performed the action on the original unfiltered list, so smuggled ids were acted on without being checked.
+- **Root cause:** Treated the helper's input normalization as harmless cleanup, without confirming the checked set equals the acted-on set.
+- **Rule:** Authorization helpers must reject (deny) any malformed element rather than drop it, and handlers must validate the full input at the boundary before both checking and acting on that same validated value.
+- **Check:** For each access check in the diff, compare the exact variable passed to the check with the one passed to the mutation; flag any `.filter`, dedupe-with-drop, or type guard inside the check that could shrink the set.
+- **Seen:** 1 (pr-review, 2026-10)
+
+### L-009: Row-level write check satisfiable by the row being written
+- **Area:** authorization, row-level security
+- **Pattern:** A permission's post-write check required "a membership row for me exists on the parent", while the role could update the membership table's foreign keys, so moving its own membership row to another parent satisfied the check and granted access.
+- **Root cause:** Reviewed the filter/check expressions in isolation without asking whether the write itself can change the facts the check relies on.
+- **Rule:** For any table that grants access (memberships, assignments, roles), deny writes to its foreign-key columns for the roles it scopes, and test that a role cannot reassign itself.
+- **Check:** For each insert/update permission in the diff, list the columns the check depends on through relationships; flag any that are writable by the same role, especially on membership/assignment tables.
+- **Seen:** 1 (pr-review, 2026-10)
