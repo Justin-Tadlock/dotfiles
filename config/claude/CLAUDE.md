@@ -77,6 +77,15 @@ Every piece of code written or edited must meet this bar. Apply it twice: during
 - **Feedback on every path:** Every reachable path (success, validation failure, not-found, error, partial failure) returns a correctly typed, meaningful response or UI state: loading indicators, disabled in-flight controls, success/error messages. A success status with an ambiguous or empty body on failure is a bug.
 - **Testability:** Structure code so the above can be unit tested in isolation: pure functions for logic, mockable data/external-API modules, and hooks/components that don't need the whole app mounted.
 
+### Git & Branching
+
+- When cherry-picking onto a long-diverged branch, don't treat conflicts or missing references (helpers, enum members, parameters, files) as simple missing-file problems. First check which history each side assumes:
+  - Isolate the commit's real change with `git show <sha> -- <path>`; surrounding conflict context may just be stale.
+  - Find where a missing reference came from (`git log --diff-filter=A <source-branch> -- <path>`), and whether that commit is on the target (`git merge-base --is-ancestor <commit> HEAD`).
+  - If the target is already ahead (the code was extracted or moved there), keep the target's side and drop the incoming duplicate.
+- Default to the narrowest fix that preserves the target branch's current behavior, not the source branch's evolved behavior. Ask before pulling in unrelated features to satisfy a dependency.
+- After resolving, run the typecheck and confirm every new reference exists on the target branch.
+
 ### Security & Penetration-Testing Standards
 
 Design and write all code as if it will be penetration tested. Treat every value that crosses a trust boundary (HTTP requests, GraphQL arguments, URL/query params, headers, cookies, form data, webhooks, message queues, files, third-party API responses, and data read from storage that users can write) as hostile until validated.

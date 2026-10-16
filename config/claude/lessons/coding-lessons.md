@@ -19,6 +19,7 @@ Entry format:
 
 ---
 
+<!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching" -->
 <!-- Lessons start below. Next ID: L-008 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
@@ -68,11 +69,3 @@ Entry format:
 - **Rule:** When a value from an external response is wrong, inspect a real captured payload before hypothesizing. Validate external responses at the boundary with a runtime schema, and fix stale types once confirmed.
 - **Check:** For new reads of external response fields in the diff, confirm a runtime schema or verified sample backs the declared type.
 - **Seen:** 1 (self-review, 2026-08)
-
-### L-007: Cherry-picked code depended on commits missing from the target branch
-- **Area:** git, branching
-- **Pattern:** A commit cherry-picked onto a long-diverged branch referenced helpers, enum members, parameters, or files introduced (or removed) by unrelated commits not on the target. Or the target was already ahead, so the conflict re-added code that had been extracted elsewhere.
-- **Root cause:** Treated conflicts as simple missing-file problems instead of checking which history each side assumed.
-- **Rule:** Isolate the commit's real change with `git show <sha> -- <path>`. Find where the missing references came from (`git log --diff-filter=A <source-branch> -- <path>`, `git merge-base --is-ancestor`). Default to the narrowest fix that preserves the target branch's behavior, and ask before pulling in unrelated features.
-- **Check:** After resolving a cherry-pick, run the typecheck and confirm every new reference exists on the target branch.
-- **Seen:** 3+ (self-review, 2026-08 to 2026-10)
