@@ -88,11 +88,11 @@ Entry format:
 
 ### L-010: Structural policy test matched a required clause at any depth
 - **Area:** testing, authorization
-- **Pattern:** A test asserting "every permission rule requires clause X" searched the whole expression tree for X, so X under an unrelated relationship, or under a negation/disjunction, satisfied it without enforcing the intended scope.
+- **Pattern:** A test asserting "every permission rule requires clause X" searched the whole expression tree for X, so X under an unrelated relationship, under a negation/disjunction, or reached through a one-to-many relationship satisfied it without enforcing the intended scope. Through a to-many hop, X means "some related row qualifies", not "this row qualifies".
 - **Root cause:** Wrote the matcher for the shapes that existed, not for the shapes an incorrect rule could take.
-- **Rule:** Policy-lint tests must match the required clause only at the specific path that gives the scoping meaning, and reject it under `not`/`or`/other relationships. Include negative fixtures for each bypass shape.
-- **Check:** For each recursive matcher in a policy test, try writing a rule that passes the matcher but doesn't enforce the policy; if one exists, flag it.
-- **Seen:** 1 (pr-review, 2026-10)
+- **Rule:** Policy-lint tests must match the required clause only at the specific path that gives the scoping meaning: reject it under `not`/`or`/unrelated relationships, follow only single-row (to-one) relationships to reach it, and treat unknown keys as failing. Include negative fixtures for each bypass shape.
+- **Check:** For each recursive matcher in a policy test, try writing a rule that passes the matcher but doesn't enforce the policy (including one that reaches the clause through a to-many relationship); if one exists, flag it.
+- **Seen:** 2 (pr-review, 2026-10; pr-review, 2026-10)
 
 ### L-011: Authorization queries tested only against a mocked database
 - **Area:** authorization, testing
