@@ -19,7 +19,7 @@ Entry format:
 
 ---
 
-<!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching" -->
+<!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access" -->
 <!-- Lessons start below. Next ID: L-012 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
@@ -69,14 +69,6 @@ Entry format:
 - **Rule:** When a value from an external response is wrong, inspect a real captured payload before hypothesizing. Validate external responses at the boundary with a runtime schema, and fix stale types once confirmed.
 - **Check:** For new reads of external response fields in the diff, confirm a runtime schema or verified sample backs the declared type.
 - **Seen:** 1 (self-review, 2026-08)
-
-### L-008: Authorized a sanitized or different copy of the input than the one acted on
-- **Area:** authorization, validation
-- **Pattern:** An access-check helper filtered out malformed ids before checking and the caller acted on the unfiltered list; or a handler authorized the ids it received, then resolved them to different, related ids (e.g. parent/linked resources) and acted on those without checking them, so a related resource shared with an unauthorized scope was modified.
-- **Root cause:** Treated input normalization or id resolution as harmless plumbing, without confirming the checked set equals the acted-on set.
-- **Rule:** Authorization helpers must reject (deny) any malformed element rather than drop it. Authorize the exact identifiers the mutation runs on: validate the full input at the boundary, and whenever ids are derived from the input, run the access check on the derived ids too.
-- **Check:** For each access check in the diff, compare the exact variable passed to the check with the one passed to the mutation; flag any `.filter`, dedupe-with-drop, or type guard inside the check that could shrink the set, and any lookup between check and mutation that produces new ids.
-- **Seen:** 2 (pr-review, 2026-10; pr-review, 2026-10)
 
 ### L-009: Row-level write check satisfiable by the row being written
 - **Area:** authorization, row-level security
