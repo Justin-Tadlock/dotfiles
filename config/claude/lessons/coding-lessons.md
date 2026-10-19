@@ -70,13 +70,13 @@ Entry format:
 - **Check:** For new reads of external response fields in the diff, confirm a runtime schema or verified sample backs the declared type.
 - **Seen:** 1 (self-review, 2026-08)
 
-### L-008: Authorized a sanitized copy of the input but acted on the raw input
+### L-008: Authorized a sanitized or different copy of the input than the one acted on
 - **Area:** authorization, validation
-- **Pattern:** An access-check helper filtered out malformed ids (wrong type, null) before checking, then returned "allowed" for the remainder; the caller performed the action on the original unfiltered list, so smuggled ids were acted on without being checked.
-- **Root cause:** Treated the helper's input normalization as harmless cleanup, without confirming the checked set equals the acted-on set.
-- **Rule:** Authorization helpers must reject (deny) any malformed element rather than drop it, and handlers must validate the full input at the boundary before both checking and acting on that same validated value.
-- **Check:** For each access check in the diff, compare the exact variable passed to the check with the one passed to the mutation; flag any `.filter`, dedupe-with-drop, or type guard inside the check that could shrink the set.
-- **Seen:** 1 (pr-review, 2026-10)
+- **Pattern:** An access-check helper filtered out malformed ids before checking and the caller acted on the unfiltered list; or a handler authorized the ids it received, then resolved them to different, related ids (e.g. parent/linked resources) and acted on those without checking them, so a related resource shared with an unauthorized scope was modified.
+- **Root cause:** Treated input normalization or id resolution as harmless plumbing, without confirming the checked set equals the acted-on set.
+- **Rule:** Authorization helpers must reject (deny) any malformed element rather than drop it. Authorize the exact identifiers the mutation runs on: validate the full input at the boundary, and whenever ids are derived from the input, run the access check on the derived ids too.
+- **Check:** For each access check in the diff, compare the exact variable passed to the check with the one passed to the mutation; flag any `.filter`, dedupe-with-drop, or type guard inside the check that could shrink the set, and any lookup between check and mutation that produces new ids.
+- **Seen:** 2 (pr-review, 2026-10; pr-review, 2026-10)
 
 ### L-009: Row-level write check satisfiable by the row being written
 - **Area:** authorization, row-level security
