@@ -20,7 +20,7 @@ Entry format:
 ---
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access" -->
-<!-- Lessons start below. Next ID: L-016 -->
+<!-- Lessons start below. Next ID: L-017 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -124,4 +124,12 @@ Entry format:
 - **Root cause:** Picked a string-length guard by hand instead of deriving both branches from one bound, and didn't test the write → store → read round trip.
 - **Rule:** Give every input representation of a value the same bound, enforced by one shared check (e.g. `Number.isSafeInteger` after conversion). Test that each value the writer can emit is accepted again after a storage round trip, including drivers that return wide integers as strings.
 - **Check:** For each parser in the diff that branches on `typeof`, compare the bounds each branch enforces, and look for a test that feeds the read-back form (e.g. `String(max)`) through it.
+- **Seen:** 1 (pr-review, 2026-10)
+
+### L-016: Compared counts from two layers that use different equality rules
+- **Area:** authorization, data access, validation
+- **Pattern:** Deduplicated input ids in application code with exact string equality, then required the database to return one row per id. The database compared the column type with its own equality rule (case-insensitive for that type), so two spellings of one id produced one row, the counts disagreed, and a valid request was denied.
+- **Root cause:** Assumed the application's notion of "same value" matched the database's, without checking how the column type compares values.
+- **Rule:** Before comparing an input count with a result count (or matching input values against returned values), put the input in the same canonical form the storage layer compares by (case, whitespace, numeric vs. string), then deduplicate. Test with two spellings of the same value.
+- **Check:** For each `new Set(...)` or dedup in the diff whose size is compared with a query's row count, confirm the elements are normalized to the column type's equality first, and that a test sends differently cased or formatted duplicates.
 - **Seen:** 1 (pr-review, 2026-10)
