@@ -20,7 +20,7 @@ Entry format:
 ---
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access" -->
-<!-- Lessons start below. Next ID: L-014 -->
+<!-- Lessons start below. Next ID: L-015 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -109,3 +109,11 @@ Entry format:
 - **Rule:** When changing how a value is derived, search for every place that produces or inserts that value (not just callers of one helper) and fix them all together, or move the derivation into one shared function. Also trace where the corrected value flows next: any helper that re-normalizes it (lowercasing, trimming, parsing) silently undoes the fix, and may also match or revive rows keyed by the old form. For insert-if-absent flows, check what each remaining writer would create if it ran first.
 - **Check:** For each call site in the diff that wraps a derivation in a new mapping, search the same module/flow for other derivations of the same value (same parser, same insert target); flag any left unchanged. For `on conflict do nothing` inserts, confirm each writer sets every attribute correctly when it runs first. Also follow each corrected value into the functions it's passed to; flag any that re-normalize it before a lookup, insert, or undelete.
 - **Seen:** 2 (pr-review, 2026-10; pr-review, 2026-10)
+
+### L-014: Reported a consumer gap without checking that the path runs
+- **Area:** code review, data flow
+- **Pattern:** Flagged that a remapped record would no longer join its partner record, but the step that produces the partner never ran for the inputs where the remap applies.
+- **Root cause:** Traced the consumer of the changed value but not the orchestration that decides which steps run for which inputs.
+- **Rule:** Before reporting a defect on a path, confirm from the orchestration (gates, flags, type checks) that both the producer and the consumer run for the inputs involved.
+- **Check:** For each finding, cite the caller or gate showing the path is reachable in the scenario described; drop or downgrade it if you can't.
+- **Seen:** 1 (self-review, 2026-10)
