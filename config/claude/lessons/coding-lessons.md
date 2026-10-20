@@ -20,7 +20,7 @@ Entry format:
 ---
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access" -->
-<!-- Lessons start below. Next ID: L-012 -->
+<!-- Lessons start below. Next ID: L-013 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -64,11 +64,11 @@ Entry format:
 
 ### L-006: Trusted static types for an external API response
 - **Area:** types, external APIs, debugging
-- **Pattern:** Destructured fields named by a declared TypeScript response type that didn't match the real payload, yielding `undefined` → `NaN`/`0`. Two successive fixes failed for the same reason.
-- **Root cause:** Treated a compile-time type as proof of runtime shape; nothing validated it.
-- **Rule:** When a value from an external response is wrong, inspect a real captured payload before hypothesizing. Validate external responses at the boundary with a runtime schema, and fix stale types once confirmed.
-- **Check:** For new reads of external response fields in the diff, confirm a runtime schema or verified sample backs the declared type.
-- **Seen:** 1 (self-review, 2026-08)
+- **Pattern:** Read fields named by a declared TypeScript response type that didn't match the real payload's shape or meaning: values came back `undefined` (→ `NaN`/`0`, with two successive fixes failing for the same reason), or a field whose name suggested one identifier actually held a different one.
+- **Root cause:** Treated a compile-time type, or a field's name, as proof of runtime shape and meaning; nothing validated it.
+- **Rule:** When a value from an external response is wrong, or a design depends on what a field means, inspect a real captured payload and cross-check the value against its source of truth before building on it. Validate external responses at the boundary with a runtime schema, and fix stale types once confirmed.
+- **Check:** For new reads of external response fields in the diff, confirm a runtime schema or verified sample backs the declared type, and for identifiers, that a sample value was matched against the entity it supposedly references.
+- **Seen:** 2 (self-review, 2026-08; self-review, 2026-10)
 
 ### L-009: Row-level write check satisfiable by the row being written
 - **Area:** authorization, row-level security
@@ -93,3 +93,11 @@ Entry format:
 - **Rule:** When the authorization decision is made in a query, add an integration test against a real database with seeded allowed/denied fixtures for each role, including inactive users and cross-tenant rows.
 - **Check:** For each new access-check function whose result comes from a query, confirm an integration test runs that query against real data.
 - **Seen:** 1 (pr-review, 2026-10)
+
+### L-012: Ran a test runner outside the script that sets its environment
+- **Area:** testing, tooling, data safety
+- **Pattern:** Invoked the test runner directly instead of through the project's test script, skipping the environment flag that routes database access to the test instance; code that builds its own connection fell back to ambient shell credentials for a shared database.
+- **Root cause:** Assumed the test config alone isolated every connection, without checking how application code picks its database or what credentials were already exported in the shell.
+- **Rule:** Run tests through the project's own scripts, or reproduce their exact environment. When running a runner directly against a database, unset the production/shared connection variables for that command so any non-test connection fails closed.
+- **Check:** Before running integration tests ad hoc, compare the command with the package script's environment, and confirm no shared-database credentials are exported in the shell that runs it.
+- **Seen:** 1 (self-review, 2026-10)
