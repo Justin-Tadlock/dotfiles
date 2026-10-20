@@ -20,7 +20,7 @@ Entry format:
 ---
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access" -->
-<!-- Lessons start below. Next ID: L-013 -->
+<!-- Lessons start below. Next ID: L-014 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -52,7 +52,7 @@ Entry format:
 - **Root cause:** Changed a producer without tracing what each consumer renders in the newly reachable state.
 - **Rule:** When a change makes a new state reachable, find every consumer of the values involved and check its behavior in that state. Prefer pure helpers that return `string | null` for derived URLs and render a link only when non-null.
 - **Check:** For each new branch/state in the diff, list the values that can be undefined or null in it and search for their uses, especially in template strings, URLs, and hrefs.
-- **Seen:** 1 (pr-review, 2026-10)
+- **Seen:** 2 (pr-review, 2026-10; pr-review, 2026-10)
 
 ### L-005: Conditionally unmounting content leaked side effects it registered
 - **Area:** React lifecycle, global state
@@ -101,3 +101,11 @@ Entry format:
 - **Rule:** Run tests through the project's own scripts, or reproduce their exact environment. When running a runner directly against a database, unset the production/shared connection variables for that command so any non-test connection fails closed.
 - **Check:** Before running integration tests ad hoc, compare the command with the package script's environment, and confirm no shared-database credentials are exported in the shell that runs it.
 - **Seen:** 1 (self-review, 2026-10)
+
+### L-013: Fixed some of the code paths that derive the same value
+- **Area:** data integrity, refactoring
+- **Pattern:** Changed how an entity's key is derived (normalized or mapped to a canonical form) at some of the call sites that derive and insert it, but missed a sibling call site in the same flow. The missed site had relied on an earlier site inserting the row first. After the fix it became the first writer, and it created the row with different, wrong attributes.
+- **Root cause:** Located call sites by the helper being changed instead of by the value being produced, and didn't consider that fixing one writer changes which writer wins an insert-if-absent race.
+- **Rule:** When changing how a value is derived, search for every place that produces or inserts that value (not just callers of one helper) and fix them all together, or move the derivation into one shared function. For insert-if-absent flows, check what each remaining writer would create if it ran first.
+- **Check:** For each call site in the diff that wraps a derivation in a new mapping, search the same module/flow for other derivations of the same value (same parser, same insert target); flag any left unchanged. For `on conflict do nothing` inserts, confirm each writer sets every attribute correctly when it runs first.
+- **Seen:** 1 (pr-review, 2026-10)
