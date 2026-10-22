@@ -19,7 +19,7 @@ Entry format:
 
 ---
 
-<!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access" -->
+<!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer" -->
 <!-- Lessons start below. Next ID: L-019 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
@@ -85,14 +85,6 @@ Entry format:
 - **Rule:** Run tests through the project's own scripts, or reproduce their exact environment. When running a runner directly against a database, unset the production/shared connection variables for that command so any non-test connection fails closed.
 - **Check:** Before running integration tests ad hoc, compare the command with the package script's environment, and confirm no shared-database credentials are exported in the shell that runs it.
 - **Seen:** 1 (self-review, 2026-10)
-
-### L-013: Fixed some of the code paths that derive the same value
-- **Area:** data integrity, refactoring
-- **Pattern:** Changed how an entity's key is derived (normalized or mapped to a canonical form) at some of the call sites that derive and insert it, but missed a sibling call site in the same flow. The missed site had relied on an earlier site inserting the row first. After the fix it became the first writer, and it created the row with different, wrong attributes.
-- **Root cause:** Located call sites by the helper being changed instead of by the value being produced, and didn't consider that fixing one writer changes which writer wins an insert-if-absent race.
-- **Rule:** When changing how a value is derived, search for every place that produces or inserts that value (not just callers of one helper) and fix them all together, or move the derivation into one shared function. Also trace where the corrected value flows next: any helper that re-normalizes it (lowercasing, trimming, parsing) silently undoes the fix, and may also match or revive rows keyed by the old form. For insert-if-absent flows, check what each remaining writer would create if it ran first. When one side of a comparison is changed to a canonical form, check every lookup that compares it against a value derived elsewhere (exact `=`/`in`, map keys). Make both sides use the same normalization, or the match silently fails.
-- **Check:** For each call site in the diff that wraps a derivation in a new mapping, search the same module/flow for other derivations of the same value (same parser, same insert target); flag any left unchanged. For `on conflict do nothing` inserts, confirm each writer sets every attribute correctly when it runs first. Also follow each corrected value into the functions it's passed to; flag any that re-normalize it before a lookup, insert, or undelete. For each value the diff canonicalizes, find the equality lookups that consume it and confirm the other operand is normalized the same way.
-- **Seen:** 3 (pr-review, 2026-10; pr-review, 2026-10; pr-review, 2026-10)
 
 ### L-014: Reported a consumer gap without checking that the path runs
 - **Area:** code review, data flow
