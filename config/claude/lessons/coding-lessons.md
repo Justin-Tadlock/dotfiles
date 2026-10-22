@@ -20,7 +20,7 @@ Entry format:
 ---
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer" -->
-<!-- Lessons start below. Next ID: L-019 -->
+<!-- Lessons start below. Next ID: L-020 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -125,3 +125,11 @@ Entry format:
 - **Rule:** For each security test, make the fixture reach the rule under test (remove the earlier reasons to deny), and assert the observable effect rather than the query shape. Mutation-check it: disable the rule and confirm the test fails. An expected-failure test (`it.fails`, `xfail`) must fail only for the vulnerable outcome; assert today's behaviour explicitly instead, so unrelated errors fail loudly. Before saying a planned fix will make it pass, run the test's attack against the planned rule.
 - **Check:** For each "denies/blocks…" test in the diff, find the first return that fires for its fixture; if it isn't the named rule, flag it. For each expected-failure test, list the ways it can throw; flag it if any isn't the vulnerability. Check that the planned fix actually blocks the test's exact attack.
 - **Seen:** 2 (pr-review, 2026-10; pr-review, 2026-10)
+
+### L-019: Derived role-access lists from code names instead of the authoritative role set
+- **Area:** authorization
+- **Pattern:** Grouped roles into access tiers by what their names suggested, and enumerated "all roles" from a code enum that was missing a role present in the database; one role got write access it shouldn't have, a deprecated role stayed fully privileged, and a new role was locked out of every guarded route.
+- **Root cause:** Treated the code's role enum and role names as the specification, without reconciling them against the stored role table and the product's stated rules for each role.
+- **Rule:** Before writing role tiers, list every role in the authoritative store (DB/IdP), get each role's intended read/write scope confirmed, and fail closed for any role not explicitly placed. Never use "all values of the enum" as an allow-list unless the enum is verified complete.
+- **Check:** For each role list or `Object.values(<RoleEnum>)` in the diff, compare against the stored role set; confirm a test covers every role (including deprecated and newly added ones) for both read and write.
+- **Seen:** 1 (pr-review, 2026-10)
