@@ -19,7 +19,7 @@ Entry format:
 
 ---
 
-<!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access" -->
+<!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries" -->
 <!-- Lessons start below. Next ID: L-018 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
@@ -61,14 +61,6 @@ Entry format:
 - **Rule:** When adding a gate that unmounts content, list what that subtree registers in shared/global state (loading trackers, subscriptions, timers, listeners) and ensure it is cleared on every terminal path. Test that the cleanup fires exactly once per transition.
 - **Check:** For each new conditional render that hides existing children, look for start/register/subscribe calls inside those children without a matching cleanup on that path.
 - **Seen:** 1 (pr-review, 2026-10)
-
-### L-006: Trusted static types for an external API response
-- **Area:** types, external APIs, debugging
-- **Pattern:** Read fields named by a declared TypeScript response type that didn't match the real payload's shape or meaning: values came back `undefined` (→ `NaN`/`0`, with two successive fixes failing for the same reason), or a field whose name suggested one identifier actually held a different one.
-- **Root cause:** Treated a compile-time type, or a field's name, as proof of runtime shape and meaning; nothing validated it.
-- **Rule:** When a value from an external response is wrong, or a design depends on what a field means, inspect a real captured payload and cross-check the value against its source of truth before building on it. The same applies to legacy stored data and formats: inspect real rows or the historical code that wrote them before telling a user something can't be supported. Validate external responses at the boundary with a runtime schema, and fix stale types once confirmed.
-- **Check:** For new reads of external response fields in the diff, confirm a runtime schema or verified sample backs the declared type, and for identifiers, that a sample value was matched against the entity it supposedly references.
-- **Seen:** 3 (self-review, 2026-08; self-review, 2026-10; pr-review, 2026-10)
 
 ### L-009: Row-level write check satisfiable by the row being written
 - **Area:** authorization, row-level security
