@@ -20,7 +20,7 @@ Entry format:
 ---
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access" -->
-<!-- Lessons start below. Next ID: L-017 -->
+<!-- Lessons start below. Next ID: L-018 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -66,17 +66,17 @@ Entry format:
 - **Area:** types, external APIs, debugging
 - **Pattern:** Read fields named by a declared TypeScript response type that didn't match the real payload's shape or meaning: values came back `undefined` (→ `NaN`/`0`, with two successive fixes failing for the same reason), or a field whose name suggested one identifier actually held a different one.
 - **Root cause:** Treated a compile-time type, or a field's name, as proof of runtime shape and meaning; nothing validated it.
-- **Rule:** When a value from an external response is wrong, or a design depends on what a field means, inspect a real captured payload and cross-check the value against its source of truth before building on it. Validate external responses at the boundary with a runtime schema, and fix stale types once confirmed.
+- **Rule:** When a value from an external response is wrong, or a design depends on what a field means, inspect a real captured payload and cross-check the value against its source of truth before building on it. The same applies to legacy stored data and formats: inspect real rows or the historical code that wrote them before telling a user something can't be supported. Validate external responses at the boundary with a runtime schema, and fix stale types once confirmed.
 - **Check:** For new reads of external response fields in the diff, confirm a runtime schema or verified sample backs the declared type, and for identifiers, that a sample value was matched against the entity it supposedly references.
-- **Seen:** 2 (self-review, 2026-08; self-review, 2026-10)
+- **Seen:** 3 (self-review, 2026-08; self-review, 2026-10; pr-review, 2026-10)
 
 ### L-009: Row-level write check satisfiable by the row being written
 - **Area:** authorization, row-level security
 - **Pattern:** A permission's post-write check required "a membership row for me exists on the parent", while the role could update the membership table's foreign keys, so moving its own membership row to another parent satisfied the check and granted access.
 - **Root cause:** Reviewed the filter/check expressions in isolation without asking whether the write itself can change the facts the check relies on.
-- **Rule:** For any table that grants access (memberships, assignments, roles), deny writes to its foreign-key columns for the roles it scopes, and test that a role cannot reassign itself.
-- **Check:** For each insert/update permission in the diff, list the columns the check depends on through relationships; flag any that are writable by the same role, especially on membership/assignment tables.
-- **Seen:** 1 (pr-review, 2026-10)
+- **Rule:** For any table that grants access (memberships, assignments, roles), deny writes to its foreign-key columns for the roles it scopes, and test that a role cannot reassign itself. The same applies to any allow rule that matches a record the caller can edit (a profile field, a URL or reference column): matching it must not grant access to anything the caller didn't already own.
+- **Check:** For each insert/update permission in the diff, list the columns the check depends on through relationships; flag any that are writable by the same role, especially on membership/assignment tables. Also, for each "allowed if record X references it" rule, ask whether the caller can write X; if so, flag it.
+- **Seen:** 2 (pr-review, 2026-10; pr-review, 2026-10)
 
 ### L-010: Structural policy test matched a required clause at any depth
 - **Area:** testing, authorization
@@ -91,8 +91,8 @@ Entry format:
 - **Pattern:** Access-check helpers built from SQL joins were unit-tested with a mocked query function, so the tests checked the branching but never the joins and predicates that actually enforce access.
 - **Root cause:** Treated the SQL as plumbing rather than as the security boundary itself.
 - **Rule:** When the authorization decision is made in a query, add an integration test against a real database with seeded allowed/denied fixtures for each role, including inactive users and cross-tenant rows.
-- **Check:** For each new access-check function whose result comes from a query, confirm an integration test runs that query against real data.
-- **Seen:** 1 (pr-review, 2026-10)
+- **Check:** For each new access-check function whose result comes from a query, confirm an integration test runs that query against real data, including that each role can run the query at all (a missing table permission is an error, not an empty result).
+- **Seen:** 2 (pr-review, 2026-10; pr-review, 2026-10)
 
 ### L-012: Ran a test runner outside the script that sets its environment
 - **Area:** testing, tooling, data safety
@@ -132,4 +132,12 @@ Entry format:
 - **Root cause:** Assumed the application's notion of "same value" matched the database's, without checking how the column type compares values.
 - **Rule:** Before comparing an input count with a result count (or matching input values against returned values), put the input in the same canonical form the storage layer compares by (case, whitespace, numeric vs. string), then deduplicate. Test with two spellings of the same value.
 - **Check:** For each `new Set(...)` or dedup in the diff whose size is compared with a query's row count, confirm the elements are normalized to the column type's equality first, and that a test sends differently cased or formatted duplicates.
+- **Seen:** 1 (pr-review, 2026-10)
+
+### L-017: A batched GraphQL access check fails entirely for a role that lacks one root field
+- **Area:** authorization, GraphQL
+- **Pattern:** Combined several root fields into one access-check query; for a role without select permission on one of them the whole query failed validation, turning every check for that role into a server error.
+- **Root cause:** Assumed a missing permission returns empty rows instead of a validation error.
+- **Rule:** In role-scoped GraphQL access checks, query only the root fields the decision needs, and treat a permission "field not found" for a root as "no visible rows" for that root. Test every role.
+- **Check:** For each multi-root query run with a user's token, confirm every role that can reach it has select on every root, or that missing roots degrade to empty.
 - **Seen:** 1 (pr-review, 2026-10)
