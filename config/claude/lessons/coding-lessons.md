@@ -19,7 +19,7 @@ Entry format:
 
 ---
 
-<!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer" -->
+<!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative" -->
 <!-- Lessons start below. Next ID: L-023 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
@@ -37,14 +37,6 @@ Entry format:
 - **Rule:** Every new or changed async handler needs an explicit catch that surfaces the failure (error state/toast, or typed error response) and, where sensible, a retry.
 - **Check:** For each `async` function or new `await` in the diff, confirm a try/catch or an explicit caller-side catch exists and that the catch produces visible feedback.
 - **Seen:** 1 (pr-review, 2026-10)
-
-### L-003: Collapsed "unknown/error" into a confident negative
-- **Area:** state modeling, null handling, testing
-- **Pattern:** Coalesced an unresolved async value to a definite answer (`?? 0`, `exists = false` on request error), presenting "couldn't determine" as "confirmed zero / not found". Wrote tests asserting that behavior, which locked the bug in.
-- **Root cause:** Modeled fetch results as a boolean or scalar instead of enumerating states, and conflated an access decision (hide content on failure) with a user-facing claim ("doesn't exist").
-- **Rule:** Model fetch-derived state explicitly: loading / success / not-found / error. Never let a fallback value stand in for "unknown". Keep "should we render" separate from "what do we tell the user". Errors get their own message and retry. This includes absence checks: "not permitted to see" is not "nothing exists", so a check that grants access when something is absent must fail closed when absence can't be established.
-- **Check:** Inspect every `??`, `||`, and default value applied to async or external data in the diff: is the fallback semantically different from "unknown"? Flag any test that asserts an error produces a negative result, and any access rule that grants on an empty result the caller may simply be unable to see.
-- **Seen:** 3 (pr-review, 2026-10; pr-review, 2026-10; pr-review, 2026-10)
 
 ### L-004: Made a new state reachable without auditing its consumers
 - **Area:** state modeling, rendering
