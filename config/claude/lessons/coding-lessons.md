@@ -20,7 +20,7 @@ Entry format:
 ---
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative" -->
-<!-- Lessons start below. Next ID: L-024 -->
+<!-- Lessons start below. Next ID: L-025 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -156,4 +156,12 @@ Entry format:
 - **Root cause:** Wrote the status-based branch for the first request's error shape without listing which other steps can produce the same condition with a different error type.
 - **Rule:** When a caller branches on failure kind, list every step that can produce that kind, have each throw a typed error preserving the status, and classify through one shared helper rather than a client-library-specific check at the call site. Test each step's failure separately.
 - **Check:** For each `isXError(error) && status === N` branch in the diff, trace every awaited step in the called function; flag any step that can fail with the same meaning but throws a different error type.
+- **Seen:** 1 (pr-review, 2026-10)
+
+### L-024: Validated a request's host but let the HTTP client follow redirects
+- **Area:** security, SSRF, secrets handling
+- **Pattern:** A guard checked that a URL pointed at an allowed host before sending a request that carried a secret header and a sensitive body, but the HTTP client followed redirects automatically. A redirect could send the custom header (only standard credential headers are stripped across origins) and, on 307/308, the body to a host the guard never saw.
+- **Root cause:** Treated the URL passed to the client as the only destination, without checking the client's redirect behavior.
+- **Rule:** When a host/URL allow-list protects a request carrying secrets or privileged payloads, disable or reject redirects (e.g. `redirect: 'error'` / `maxRedirects: 0`), or re-validate every hop manually. Keep the guard and the request in one helper so every call goes through both.
+- **Check:** For each host/URL allow-list check in the diff, find the request it guards and confirm redirects are refused or each hop is re-checked.
 - **Seen:** 1 (pr-review, 2026-10)
