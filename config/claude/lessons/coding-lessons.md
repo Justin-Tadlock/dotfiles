@@ -130,6 +130,6 @@ Entry format:
 - **Area:** testing, authorization
 - **Pattern:** Tests named after a specific defence (e.g. "denies X even when Y") passed because an earlier check returned first, so the named rule was never executed; another test asserted only the query text for a protection that did not hold.
 - **Root cause:** Checked the outcome, not which branch produced it.
-- **Rule:** For each security test, make the fixture reach the rule under test (remove the earlier reasons to deny), and assert the observable effect rather than the query shape. Mutation-check it: disable the rule and confirm the test fails.
-- **Check:** For each "denies/blocks…" test in the diff, find the first return that fires for its fixture; if it isn't the named rule, flag it.
-- **Seen:** 1 (pr-review, 2026-10)
+- **Rule:** For each security test, make the fixture reach the rule under test (remove the earlier reasons to deny), and assert the observable effect rather than the query shape. Mutation-check it: disable the rule and confirm the test fails. An expected-failure test (`it.fails`, `xfail`) must fail only for the vulnerable outcome; assert today's behaviour explicitly instead, so unrelated errors fail loudly. Before saying a planned fix will make it pass, run the test's attack against the planned rule.
+- **Check:** For each "denies/blocks…" test in the diff, find the first return that fires for its fixture; if it isn't the named rule, flag it. For each expected-failure test, list the ways it can throw; flag it if any isn't the vulnerability. Check that the planned fix actually blocks the test's exact attack.
+- **Seen:** 2 (pr-review, 2026-10; pr-review, 2026-10)
