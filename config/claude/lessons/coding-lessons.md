@@ -20,7 +20,7 @@ Entry format:
 ---
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative" -->
-<!-- Lessons start below. Next ID: L-023 -->
+<!-- Lessons start below. Next ID: L-024 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -148,4 +148,12 @@ Entry format:
 - **Root cause:** Picked the limit for the expected row count, without checking which filters ran before it and which after.
 - **Rule:** Push every eligibility filter into the query before the limit. If anything still has to be filtered in code, page until found or exhausted, with a hard cap that fails closed.
 - **Check:** For each limited query in the diff, check whether its results are filtered further in code. If so, flag it.
+- **Seen:** 1 (pr-review, 2026-10)
+
+### L-023: Error handling classified failures from only the first hop of a multi-step request
+- **Area:** async, error handling, UX
+- **Pattern:** A flow made an authorized API call and then fetched the resource it pointed to. The caller mapped "not found" using the HTTP client's error type, but the second hop threw a plain `Error`, so a missing resource after a successful first hop showed an unrelated generic/network message.
+- **Root cause:** Wrote the status-based branch for the first request's error shape without listing which other steps can produce the same condition with a different error type.
+- **Rule:** When a caller branches on failure kind, list every step that can produce that kind, have each throw a typed error preserving the status, and classify through one shared helper rather than a client-library-specific check at the call site. Test each step's failure separately.
+- **Check:** For each `isXError(error) && status === N` branch in the diff, trace every awaited step in the called function; flag any step that can fail with the same meaning but throws a different error type.
 - **Seen:** 1 (pr-review, 2026-10)
