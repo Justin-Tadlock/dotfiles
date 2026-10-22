@@ -19,8 +19,8 @@ Entry format:
 
 ---
 
-<!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries" -->
-<!-- Lessons start below. Next ID: L-018 -->
+<!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access" -->
+<!-- Lessons start below. Next ID: L-019 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -61,14 +61,6 @@ Entry format:
 - **Rule:** When adding a gate that unmounts content, list what that subtree registers in shared/global state (loading trackers, subscriptions, timers, listeners) and ensure it is cleared on every terminal path. Test that the cleanup fires exactly once per transition.
 - **Check:** For each new conditional render that hides existing children, look for start/register/subscribe calls inside those children without a matching cleanup on that path.
 - **Seen:** 1 (pr-review, 2026-10)
-
-### L-009: Row-level write check satisfiable by the row being written
-- **Area:** authorization, row-level security
-- **Pattern:** A permission's post-write check required "a membership row for me exists on the parent", while the role could update the membership table's foreign keys, so moving its own membership row to another parent satisfied the check and granted access.
-- **Root cause:** Reviewed the filter/check expressions in isolation without asking whether the write itself can change the facts the check relies on.
-- **Rule:** For any table that grants access (memberships, assignments, roles), deny writes to its foreign-key columns for the roles it scopes, and test that a role cannot reassign itself. The same applies to any allow rule that matches a record the caller can edit (a profile field, a URL or reference column): matching it must not grant access to anything the caller didn't already own.
-- **Check:** For each insert/update permission in the diff, list the columns the check depends on through relationships; flag any that are writable by the same role, especially on membership/assignment tables. Also, for each "allowed if record X references it" rule, ask whether the caller can write X; if so, flag it.
-- **Seen:** 2 (pr-review, 2026-10; pr-review, 2026-10)
 
 ### L-010: Structural policy test matched a required clause at any depth
 - **Area:** testing, authorization
@@ -132,4 +124,12 @@ Entry format:
 - **Root cause:** Assumed a missing permission returns empty rows instead of a validation error.
 - **Rule:** In role-scoped GraphQL access checks, query only the root fields the decision needs, and treat a permission "field not found" for a root as "no visible rows" for that root. Test every role.
 - **Check:** For each multi-root query run with a user's token, confirm every role that can reach it has select on every root, or that missing roots degrade to empty.
+- **Seen:** 1 (pr-review, 2026-10)
+
+### L-018: A security test passed because of an earlier guard, not the rule it names
+- **Area:** testing, authorization
+- **Pattern:** Tests named after a specific defence (e.g. "denies X even when Y") passed because an earlier check returned first, so the named rule was never executed; another test asserted only the query text for a protection that did not hold.
+- **Root cause:** Checked the outcome, not which branch produced it.
+- **Rule:** For each security test, make the fixture reach the rule under test (remove the earlier reasons to deny), and assert the observable effect rather than the query shape. Mutation-check it: disable the rule and confirm the test fails.
+- **Check:** For each "denies/blocks…" test in the diff, find the first return that fires for its fixture; if it isn't the named rule, flag it.
 - **Seen:** 1 (pr-review, 2026-10)

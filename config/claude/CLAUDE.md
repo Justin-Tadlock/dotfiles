@@ -108,6 +108,7 @@ Design and write all code as if it will be penetration tested. Treat every value
 - Scope queries at the data layer (e.g., `WHERE owner_id = :sessionUserId AND tenant_id = :sessionTenantId`) instead of fetching first and filtering afterward.
 - For updates/deletes, verify ownership in the same query or transaction as the write to avoid TOCTOU races.
 - Authorize the exact identifiers a mutation acts on. Access-check helpers must deny (not drop) malformed elements. Whenever an id is derived from the input (a parent, linked, or backing resource), run the access check on the derived id too, and audit sibling handlers that make the same derivation.
+- Before relying on a record to grant or order access, confirm the caller can't write the columns the rule depends on (foreign keys, `id`, timestamps, soft-delete flags, URL or reference fields). If they can, the rule is forgeable; fix the write permission first. For tables that grant access (memberships, assignments), deny writes to their foreign keys for the roles they scope, and test that a role cannot reassign itself.
 - Apply least privilege for roles, service accounts, API keys, and database users.
 - Return the same response for "not found" and "not authorized" where existence itself is sensitive, to prevent enumeration.
 
