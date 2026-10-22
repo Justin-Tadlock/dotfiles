@@ -20,7 +20,7 @@ Entry format:
 ---
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative" -->
-<!-- Lessons start below. Next ID: L-025 -->
+<!-- Lessons start below. Next ID: L-027 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -164,4 +164,20 @@ Entry format:
 - **Root cause:** Treated the URL passed to the client as the only destination, without checking the client's redirect behavior.
 - **Rule:** When a host/URL allow-list protects a request carrying secrets or privileged payloads, disable or reject redirects (e.g. `redirect: 'error'` / `maxRedirects: 0`), or re-validate every hop manually. Keep the guard and the request in one helper so every call goes through both.
 - **Check:** For each host/URL allow-list check in the diff, find the request it guards and confirm redirects are refused or each hop is re-checked.
+- **Seen:** 1 (pr-review, 2026-10)
+
+### L-025: Matched an incoming name against a cached copy instead of the live value
+- **Area:** data access, caching, identity
+- **Pattern:** Resolved incoming names to records by a locally cached copy of an external system's name, while another flow updated the live local record's name first, so lookups missed until the next sync and created duplicates.
+- **Root cause:** Listed the writers of the cache, not every writer of the value the cache mirrors.
+- **Rule:** When resolving by a mirrored value, list every writer of both the mirror and the live value; match against both (treating conflicts as ambiguous) or update them together.
+- **Check:** For each lookup on a synced/cached column in the diff, search for writes to the corresponding live column; flag any path that updates one without the other.
+- **Seen:** 1 (pr-review, 2026-10)
+
+### L-026: Per-file random counters for fixture IDs in a shared test database
+- **Area:** testing, integration
+- **Pattern:** Each test file started its own counter at a random offset for unique-keyed fixture IDs. Files run in parallel against one database whose rows persist, so the ranges could overlap and fail on the primary key intermittently.
+- **Root cause:** Treated a random start as uniqueness without considering that the module state is per file while the database is shared.
+- **Rule:** Allocate fixture values that must be unique across test files from the shared store (a database sequence created during test setup), not module-level counters or random values.
+- **Check:** For each `Math.random()` or module-level counter feeding a unique column in test helpers, flag it if more than one test file can insert into that table.
 - **Seen:** 1 (pr-review, 2026-10)
