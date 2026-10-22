@@ -20,7 +20,7 @@ Entry format:
 ---
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer" -->
-<!-- Lessons start below. Next ID: L-022 -->
+<!-- Lessons start below. Next ID: L-023 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -42,9 +42,9 @@ Entry format:
 - **Area:** state modeling, null handling, testing
 - **Pattern:** Coalesced an unresolved async value to a definite answer (`?? 0`, `exists = false` on request error), presenting "couldn't determine" as "confirmed zero / not found". Wrote tests asserting that behavior, which locked the bug in.
 - **Root cause:** Modeled fetch results as a boolean or scalar instead of enumerating states, and conflated an access decision (hide content on failure) with a user-facing claim ("doesn't exist").
-- **Rule:** Model fetch-derived state explicitly: loading / success / not-found / error. Never let a fallback value stand in for "unknown". Keep "should we render" separate from "what do we tell the user". Errors get their own message and retry.
-- **Check:** Inspect every `??`, `||`, and default value applied to async or external data in the diff: is the fallback semantically different from "unknown"? Flag any test that asserts an error produces a negative result.
-- **Seen:** 2 (pr-review, 2026-10; pr-review, 2026-10)
+- **Rule:** Model fetch-derived state explicitly: loading / success / not-found / error. Never let a fallback value stand in for "unknown". Keep "should we render" separate from "what do we tell the user". Errors get their own message and retry. This includes absence checks: "not permitted to see" is not "nothing exists", so a check that grants access when something is absent must fail closed when absence can't be established.
+- **Check:** Inspect every `??`, `||`, and default value applied to async or external data in the diff: is the fallback semantically different from "unknown"? Flag any test that asserts an error produces a negative result, and any access rule that grants on an empty result the caller may simply be unable to see.
+- **Seen:** 3 (pr-review, 2026-10; pr-review, 2026-10; pr-review, 2026-10)
 
 ### L-004: Made a new state reachable without auditing its consumers
 - **Area:** state modeling, rendering
@@ -148,4 +148,12 @@ Entry format:
 - **Root cause:** Audited callers of the helper, not every caller of the endpoint, and didn't trace what each client does to a field before sending it or with it afterwards.
 - **Rule:** When changing an endpoint's validation, normalization or error shape, search for every request to that endpoint (not just helper usages). For each, check the transformations applied before sending against the new bounds, persist the server-normalized value rather than the raw input, and route errors through the shared formatter.
 - **Check:** For each tightened bound or normalization in the diff, search for the endpoint path across the client code; for each hit, compare what it sends and stores with the new contract.
+- **Seen:** 1 (pr-review, 2026-10)
+
+### L-022: A row cap was applied before the filters that decide eligibility
+- **Area:** data access, authorization
+- **Pattern:** An access check fetched candidate rows with a limit and then filtered them in application code (deleted, owner, visibility), so rows that would grant access beyond the cap were never considered.
+- **Root cause:** Picked the limit for the expected row count, without checking which filters ran before it and which after.
+- **Rule:** Push every eligibility filter into the query before the limit. If anything still has to be filtered in code, page until found or exhausted, with a hard cap that fails closed.
+- **Check:** For each limited query in the diff, check whether its results are filtered further in code. If so, flag it.
 - **Seen:** 1 (pr-review, 2026-10)
