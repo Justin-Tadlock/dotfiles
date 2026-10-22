@@ -20,7 +20,7 @@ Entry format:
 ---
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer" -->
-<!-- Lessons start below. Next ID: L-021 -->
+<!-- Lessons start below. Next ID: L-022 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -140,4 +140,12 @@ Entry format:
 - **Root cause:** Treated the completion callback's target as fixed for the request's lifetime without checking whether the user could replace it mid-flight.
 - **Rule:** For any side effect that runs after an await (close, reset, navigate, clear selection), either block replacing the originating UI until the request settles, or capture a session/instance token at submit and apply the effect only if it still matches. Test the interleaving.
 - **Check:** For each `onClose`/`reset`/state-clear call after an `await` in the diff, ask whether the user can dismiss and reopen (or switch) that UI while the request is pending; if so, confirm a guard and a test exist.
+- **Seen:** 1 (pr-review, 2026-10)
+
+### L-021: Changed a server boundary's contract without auditing clients that bypass the shared helper
+- **Area:** validation, API contracts, error handling
+- **Pattern:** Added stricter input bounds and value normalization to an endpoint and improved error formatting in the shared client helper, but another client called the endpoint directly: it pre-transformed a field past the new bound, persisted the raw (un-normalized) value that a stricter downstream reader rejected, and kept showing the transport error instead of the server's message.
+- **Root cause:** Audited callers of the helper, not every caller of the endpoint, and didn't trace what each client does to a field before sending it or with it afterwards.
+- **Rule:** When changing an endpoint's validation, normalization or error shape, search for every request to that endpoint (not just helper usages). For each, check the transformations applied before sending against the new bounds, persist the server-normalized value rather than the raw input, and route errors through the shared formatter.
+- **Check:** For each tightened bound or normalization in the diff, search for the endpoint path across the client code; for each hit, compare what it sends and stores with the new contract.
 - **Seen:** 1 (pr-review, 2026-10)
