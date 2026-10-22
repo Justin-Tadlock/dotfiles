@@ -20,7 +20,7 @@ Entry format:
 ---
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer" -->
-<!-- Lessons start below. Next ID: L-020 -->
+<!-- Lessons start below. Next ID: L-021 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -132,4 +132,12 @@ Entry format:
 - **Root cause:** Treated the code's role enum and role names as the specification, without reconciling them against the stored role table and the product's stated rules for each role.
 - **Rule:** Before writing role tiers, list every role in the authoritative store (DB/IdP), get each role's intended read/write scope confirmed, and fail closed for any role not explicitly placed. Never use "all values of the enum" as an allow-list unless the enum is verified complete.
 - **Check:** For each role list or `Object.values(<RoleEnum>)` in the diff, compare against the stored role set; confirm a test covers every role (including deprecated and newly added ones) for both read and write.
+- **Seen:** 1 (pr-review, 2026-10)
+
+### L-020: Async completion callback acted on whatever UI was current, not the UI that started it
+- **Area:** async, React state, UX
+- **Pattern:** A submit handler closed/reset a shared modal or selection when its request resolved, but the user could dismiss the originating UI while the request was pending and open a new instance, so the stale completion closed and reset the new one.
+- **Root cause:** Treated the completion callback's target as fixed for the request's lifetime without checking whether the user could replace it mid-flight.
+- **Rule:** For any side effect that runs after an await (close, reset, navigate, clear selection), either block replacing the originating UI until the request settles, or capture a session/instance token at submit and apply the effect only if it still matches. Test the interleaving.
+- **Check:** For each `onClose`/`reset`/state-clear call after an `await` in the diff, ask whether the user can dismiss and reopen (or switch) that UI while the request is pending; if so, confirm a guard and a test exist.
 - **Seen:** 1 (pr-review, 2026-10)
