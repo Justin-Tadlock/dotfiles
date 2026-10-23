@@ -186,6 +186,6 @@ Entry format:
 - **Area:** data matching, external APIs
 - **Pattern:** Matched items returned by an external provider only against the records a job declared as its inputs. The provider's job configuration could be stale while it processed a different, current set of records, so valid items matched nothing and were silently skipped.
 - **Root cause:** Treated the job's declared input list as the full set of records that can appear in its results, without inspecting real results from a job whose configuration was out of sync.
-- **Rule:** Scope result matching by ownership (tenant/project plus an identity the provider guarantees), not by what the job declared it would touch. If declared inputs are used as a filter, confirm from captured results that nothing comes from outside them, and log dropped items with counts instead of skipping them silently.
+- **Rule:** Scope result matching by ownership (tenant/project plus an identity the provider guarantees), not by what the job declared it would touch. If declared inputs are used as a filter, confirm from captured results that nothing comes from outside them, and log dropped items with counts instead of skipping them silently, including items a new fallback leaves unresolved because they are ambiguous.
 - **Check:** For each lookup that limits result matching to a job's declared inputs, ask whether the provider can return items outside that list (stale configuration, group or dynamic targets); confirm a test covers an item from an owned but undeclared record.
-- **Seen:** 1 (self-review, 2026-10)
+- **Seen:** 2 (self-review, 2026-10; pr-review, 2026-10)
