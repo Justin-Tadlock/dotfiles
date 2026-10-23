@@ -67,8 +67,8 @@ Entry format:
 - **Pattern:** Access-check helpers built from SQL joins were unit-tested with a mocked query function, so the tests checked the branching but never the joins and predicates that actually enforce access.
 - **Root cause:** Treated the SQL as plumbing rather than as the security boundary itself.
 - **Rule:** When the authorization decision is made in a query, add an integration test against a real database with seeded allowed/denied fixtures for each role, including inactive users and cross-tenant rows.
-- **Check:** For each new access-check function whose result comes from a query, confirm an integration test runs that query against real data, including that each role can run the query at all (a missing table permission is an error, not an empty result).
-- **Seen:** 2 (pr-review, 2026-10; pr-review, 2026-10)
+- **Check:** For each new access-check function whose result comes from a query, confirm an integration test runs that query against real data, including that each role can run the query at all (a missing table permission is an error, not an empty result). Run every query path the helper can take (each branch's filters and columns) for each role, not just one path per role.
+- **Seen:** 3 (pr-review, 2026-10; pr-review, 2026-10; pr-review, 2026-10)
 
 ### L-012: Ran a test runner outside the script that sets its environment
 - **Area:** testing, tooling, data safety
@@ -115,8 +115,8 @@ Entry format:
 - **Pattern:** Tests named after a specific defence (e.g. "denies X even when Y") passed because an earlier check returned first, so the named rule was never executed; another test asserted only the query text for a protection that did not hold.
 - **Root cause:** Checked the outcome, not which branch produced it.
 - **Rule:** For each security test, make the fixture reach the rule under test (remove the earlier reasons to deny), and assert the observable effect rather than the query shape. Mutation-check it: disable the rule and confirm the test fails. An expected-failure test (`it.fails`, `xfail`) must fail only for the vulnerable outcome; assert today's behaviour explicitly instead, so unrelated errors fail loudly. Before saying a planned fix will make it pass, run the test's attack against the planned rule.
-- **Check:** For each "denies/blocks…" test in the diff, find the first return that fires for its fixture; if it isn't the named rule, flag it. For each expected-failure test, list the ways it can throw; flag it if any isn't the vulnerability. Check that the planned fix actually blocks the test's exact attack.
-- **Seen:** 2 (pr-review, 2026-10; pr-review, 2026-10)
+- **Check:** For each "denies/blocks…" test in the diff, find the first return that fires for its fixture; if it isn't the named rule, flag it. Include denials a later fallback branch (e.g. a type or extension check) could produce when an earlier lookup returns empty for the attacker's role; assert the precondition that reaches the named rule. For each expected-failure test, list the ways it can throw; flag it if any isn't the vulnerability. Check that the planned fix actually blocks the test's exact attack.
+- **Seen:** 3 (pr-review, 2026-10; pr-review, 2026-10; pr-review, 2026-10)
 
 ### L-019: Derived role-access lists from code names instead of the authoritative role set
 - **Area:** authorization
