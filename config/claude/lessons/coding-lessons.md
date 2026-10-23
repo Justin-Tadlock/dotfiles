@@ -20,7 +20,7 @@ Entry format:
 ---
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative" -->
-<!-- Lessons start below. Next ID: L-028 -->
+<!-- Lessons start below. Next ID: L-029 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -189,3 +189,11 @@ Entry format:
 - **Rule:** Scope result matching by ownership (tenant/project plus an identity the provider guarantees), not by what the job declared it would touch. If declared inputs are used as a filter, confirm from captured results that nothing comes from outside them, and log dropped items with counts instead of skipping them silently, including items a new fallback leaves unresolved because they are ambiguous.
 - **Check:** For each lookup that limits result matching to a job's declared inputs, ask whether the provider can return items outside that list (stale configuration, group or dynamic targets); confirm a test covers an item from an owned but undeclared record.
 - **Seen:** 2 (self-review, 2026-10; pr-review, 2026-10)
+
+### L-028: A broader fallback match ran before, and overrode, an exact match
+- **Area:** data matching
+- **Pattern:** Added a wider-scoped fallback (match by a secondary identity across the whole owner scope) and applied it to every item the narrow lookup missed, replacing each item's key before the existing exact-match step ran, so items that would have matched exactly were redirected.
+- **Root cause:** Defined the fallback's input as "not resolved by the step before it" instead of "not resolved by any existing step", without re-checking the order of the matching steps.
+- **Rule:** When adding a broader fallback to a matching pipeline, run it only on items no existing step resolves, including the exact-match steps after it. Test an item that both the exact step and the fallback could resolve.
+- **Check:** For each new fallback that rewrites an item's key, list the later steps that match on that key; flag it if an item they would match can still be rewritten.
+- **Seen:** 1 (pr-review, 2026-10)
