@@ -20,7 +20,7 @@ Entry format:
 ---
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative" -->
-<!-- Lessons start below. Next ID: L-027 -->
+<!-- Lessons start below. Next ID: L-028 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -181,3 +181,11 @@ Entry format:
 - **Rule:** Allocate fixture values that must be unique across test files from the shared store (a database sequence created during test setup), not module-level counters or random values.
 - **Check:** For each `Math.random()` or module-level counter feeding a unique column in test helpers, flag it if more than one test file can insert into that table.
 - **Seen:** 1 (pr-review, 2026-10)
+
+### L-027: Limited result matching to a job's declared inputs without checking what the provider returns
+- **Area:** data matching, external APIs
+- **Pattern:** Matched items returned by an external provider only against the records a job declared as its inputs. The provider's job configuration could be stale while it processed a different, current set of records, so valid items matched nothing and were silently skipped.
+- **Root cause:** Treated the job's declared input list as the full set of records that can appear in its results, without inspecting real results from a job whose configuration was out of sync.
+- **Rule:** Scope result matching by ownership (tenant/project plus an identity the provider guarantees), not by what the job declared it would touch. If declared inputs are used as a filter, confirm from captured results that nothing comes from outside them, and log dropped items with counts instead of skipping them silently.
+- **Check:** For each lookup that limits result matching to a job's declared inputs, ask whether the provider can return items outside that list (stale configuration, group or dynamic targets); confirm a test covers an item from an owned but undeclared record.
+- **Seen:** 1 (self-review, 2026-10)
