@@ -19,7 +19,7 @@ Entry format:
 
 ---
 
-<!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative"; L-011 → CLAUDE.md "Authorization & Data Access"; L-018 → CLAUDE.md "Correctness & Resilience Checklist: Testability" -->
+<!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative"; L-011 → CLAUDE.md "Authorization & Data Access"; L-018 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-014 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries" -->
 <!-- Lessons start below. Next ID: L-030 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
@@ -69,14 +69,6 @@ Entry format:
 - **Rule:** Run tests through the project's own scripts, or reproduce their exact environment. When running a runner directly against a database, unset the production/shared connection variables for that command so any non-test connection fails closed.
 - **Check:** Before running integration tests ad hoc, compare the command with the package script's environment, and confirm no shared-database credentials are exported in the shell that runs it.
 - **Seen:** 1 (self-review, 2026-10)
-
-### L-014: Reported a defect without checking that its path runs or its assumptions hold
-- **Area:** code review, data flow, configuration
-- **Pattern:** Flagged that a remapped record would no longer join its partner record, but the step that produces the partner never ran for the inputs where the remap applies. Separately, recommended fixes from a code enum and an assumed setup (a role list, a required secret) that the real, inspectable configuration contradicted.
-- **Root cause:** Traced the consumer of the changed value but not the orchestration that decides which steps run for which inputs, and took environment facts from code instead of from the authoritative configuration.
-- **Rule:** Before reporting a defect on a path, confirm from the orchestration (gates, flags, type checks) that both the producer and the consumer run for the inputs involved. When a finding depends on configuration (roles, permissions, secrets, names of data sources), read the authoritative config first if it's accessible, and say so if it isn't.
-- **Check:** For each finding, cite the caller or gate showing the path is reachable in the scenario described, and for config-dependent findings the config you inspected; drop or downgrade it if you can't.
-- **Seen:** 2 (self-review, 2026-10; self-review, 2026-10)
 
 ### L-015: Parser enforced different bounds per input representation
 - **Area:** validation, types, persistence
