@@ -176,11 +176,11 @@ Entry format:
 
 ### L-028: A broader fallback match ran before, and overrode, an exact match
 - **Area:** data matching
-- **Pattern:** Added a wider-scoped fallback (match by a secondary identity across the whole owner scope) and applied it to every item the narrow lookup missed, replacing each item's key before the existing exact-match step ran, so items that would have matched exactly were redirected.
-- **Root cause:** Defined the fallback's input as "not resolved by the step before it" instead of "not resolved by any existing step", without re-checking the order of the matching steps.
-- **Rule:** When adding a broader fallback to a matching pipeline, run it only on items no existing step resolves, including the exact-match steps after it. Test an item that both the exact step and the fallback could resolve.
-- **Check:** For each new fallback that rewrites an item's key, list the later steps that match on that key; flag it if an item they would match can still be rewritten.
-- **Seen:** 1 (pr-review, 2026-10)
+- **Pattern:** Added a wider-scoped fallback (match by a secondary identity across the whole owner scope) and applied it to every item the narrow lookup missed, replacing each item's key before the existing exact-match step ran, so items that would have matched exactly were redirected. In a batched pipeline, the fallback's result was persisted and read back by the exact-match step in later batches, so a guard that only saw the current batch let the fallback win depending on batch boundaries.
+- **Root cause:** Defined the fallback's input as "not resolved by the step before it" instead of "not resolved by any existing step", without re-checking the order of the matching steps or whether the fallback's output feeds back into an earlier step's input.
+- **Rule:** When adding a broader fallback to a matching pipeline, run it only on items no existing step resolves, including the exact-match steps after it. Make every decision depend only on data that always arrives together (the item and its variants), not on what else is in the batch. Never persist a fallback result where a higher-priority step will read it as authoritative; mark it and keep it at fallback priority. Test an item that both the exact step and the fallback could resolve, in one batch and split across batches in both orders.
+- **Check:** For each new fallback that rewrites an item's key, list the later steps that match on that key; flag it if an item they would match can still be rewritten. If the fallback writes anything, find which steps read that write back in a later batch or run, and flag it if any of them outranks the fallback.
+- **Seen:** 2 (pr-review, 2026-10; pr-review, 2026-10)
 
 ### L-029: Hid a persistent write inside a function used as a lookup/mapper
 - **Area:** separation of concerns, data access, testability
