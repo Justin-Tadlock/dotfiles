@@ -19,7 +19,7 @@ Entry format:
 
 ---
 
-<!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative" -->
+<!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative"; L-011 → CLAUDE.md "Authorization & Data Access"; L-018 → CLAUDE.md "Correctness & Resilience Checklist: Testability" -->
 <!-- Lessons start below. Next ID: L-030 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
@@ -62,14 +62,6 @@ Entry format:
 - **Check:** For each recursive matcher in a policy test, try writing a rule that passes the matcher but doesn't enforce the policy (including one that reaches the clause through a to-many relationship); if one exists, flag it.
 - **Seen:** 2 (pr-review, 2026-10; pr-review, 2026-10)
 
-### L-011: Authorization queries tested only against a mocked database
-- **Area:** authorization, testing
-- **Pattern:** Access-check helpers built from SQL joins were unit-tested with a mocked query function, so the tests checked the branching but never the joins and predicates that actually enforce access.
-- **Root cause:** Treated the SQL as plumbing rather than as the security boundary itself.
-- **Rule:** When the authorization decision is made in a query, add an integration test against a real database with seeded allowed/denied fixtures for each role, including inactive users and cross-tenant rows.
-- **Check:** For each new access-check function whose result comes from a query, confirm an integration test runs that query against real data, including that each role can run the query at all (a missing table permission is an error, not an empty result). Run every query path the helper can take (each branch's filters and columns) for each role, not just one path per role.
-- **Seen:** 3 (pr-review, 2026-10; pr-review, 2026-10; pr-review, 2026-10)
-
 ### L-012: Ran a test runner outside the script that sets its environment
 - **Area:** testing, tooling, data safety
 - **Pattern:** Invoked the test runner directly instead of through the project's test script, skipping the environment flag that routes database access to the test instance; code that builds its own connection fell back to ambient shell credentials for a shared database.
@@ -78,13 +70,13 @@ Entry format:
 - **Check:** Before running integration tests ad hoc, compare the command with the package script's environment, and confirm no shared-database credentials are exported in the shell that runs it.
 - **Seen:** 1 (self-review, 2026-10)
 
-### L-014: Reported a consumer gap without checking that the path runs
-- **Area:** code review, data flow
-- **Pattern:** Flagged that a remapped record would no longer join its partner record, but the step that produces the partner never ran for the inputs where the remap applies.
-- **Root cause:** Traced the consumer of the changed value but not the orchestration that decides which steps run for which inputs.
-- **Rule:** Before reporting a defect on a path, confirm from the orchestration (gates, flags, type checks) that both the producer and the consumer run for the inputs involved.
-- **Check:** For each finding, cite the caller or gate showing the path is reachable in the scenario described; drop or downgrade it if you can't.
-- **Seen:** 1 (self-review, 2026-10)
+### L-014: Reported a defect without checking that its path runs or its assumptions hold
+- **Area:** code review, data flow, configuration
+- **Pattern:** Flagged that a remapped record would no longer join its partner record, but the step that produces the partner never ran for the inputs where the remap applies. Separately, recommended fixes from a code enum and an assumed setup (a role list, a required secret) that the real, inspectable configuration contradicted.
+- **Root cause:** Traced the consumer of the changed value but not the orchestration that decides which steps run for which inputs, and took environment facts from code instead of from the authoritative configuration.
+- **Rule:** Before reporting a defect on a path, confirm from the orchestration (gates, flags, type checks) that both the producer and the consumer run for the inputs involved. When a finding depends on configuration (roles, permissions, secrets, names of data sources), read the authoritative config first if it's accessible, and say so if it isn't.
+- **Check:** For each finding, cite the caller or gate showing the path is reachable in the scenario described, and for config-dependent findings the config you inspected; drop or downgrade it if you can't.
+- **Seen:** 2 (self-review, 2026-10; self-review, 2026-10)
 
 ### L-015: Parser enforced different bounds per input representation
 - **Area:** validation, types, persistence
@@ -109,14 +101,6 @@ Entry format:
 - **Rule:** In role-scoped GraphQL access checks, query only the root fields the decision needs, and treat a permission "field not found" for a root as "no visible rows" for that root. Test every role.
 - **Check:** For each multi-root query run with a user's token, confirm every role that can reach it has select on every root, or that missing roots degrade to empty.
 - **Seen:** 1 (pr-review, 2026-10)
-
-### L-018: A security test passed because of an earlier guard, not the rule it names
-- **Area:** testing, authorization
-- **Pattern:** Tests named after a specific defence (e.g. "denies X even when Y") passed because an earlier check returned first, so the named rule was never executed; another test asserted only the query text for a protection that did not hold.
-- **Root cause:** Checked the outcome, not which branch produced it.
-- **Rule:** For each security test, make the fixture reach the rule under test (remove the earlier reasons to deny), and assert the observable effect rather than the query shape. Mutation-check it: disable the rule and confirm the test fails. An expected-failure test (`it.fails`, `xfail`) must fail only for the vulnerable outcome; assert today's behaviour explicitly instead, so unrelated errors fail loudly. Before saying a planned fix will make it pass, run the test's attack against the planned rule.
-- **Check:** For each "denies/blocks…" test in the diff, find the first return that fires for its fixture; if it isn't the named rule, flag it. Include denials a later fallback branch (e.g. a type or extension check) could produce when an earlier lookup returns empty for the attacker's role; assert the precondition that reaches the named rule. For each expected-failure test, list the ways it can throw; flag it if any isn't the vulnerability. Check that the planned fix actually blocks the test's exact attack.
-- **Seen:** 3 (pr-review, 2026-10; pr-review, 2026-10; pr-review, 2026-10)
 
 ### L-019: Derived role-access lists from code names instead of the authoritative role set
 - **Area:** authorization
