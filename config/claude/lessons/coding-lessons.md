@@ -20,7 +20,7 @@ Entry format:
 ---
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative"; L-011 → CLAUDE.md "Authorization & Data Access"; L-018 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-014 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-027 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-028 → CLAUDE.md "Correctness & Resilience Checklist: Matching pipelines" -->
-<!-- Lessons start below. Next ID: L-032 -->
+<!-- Lessons start below. Next ID: L-033 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -181,3 +181,11 @@ Entry format:
 - **Rule:** Before designing a lookup or copy between records matched by a natural key, check the unique constraints and indexes on that key; if it is unique, the "related" record is the record itself.
 - **Check:** For each query in the diff that finds "other" rows by a set of columns, confirm whether those columns are unique together, and that a test seeds two rows that share them.
 - **Seen:** 1 (self-review, 2026-10)
+
+### L-032: Insert-if-absent treated a soft-deleted row as "already present"
+- **Area:** persistence, data access
+- **Pattern:** Used an insert with a conflict clause that does nothing on a duplicate key, but the unique key also covered soft-deleted rows, so a deleted row with the same key silently blocked the insert and the operation reported success with the data still hidden.
+- **Root cause:** Assumed a key conflict meant a live duplicate, without checking whether the constraint covers tombstoned rows.
+- **Rule:** For any conflict-tolerant insert on a table with soft deletes, check whether the unique key includes deleted rows; if it does, restore the conflicting deleted row (update only where it is deleted) or use a partial unique index on live rows. Test a conflict with a live row and with a deleted row.
+- **Check:** For each `ON CONFLICT ... DO NOTHING` (or equivalent upsert/ignore) in the diff, find the conflict target's constraint and whether the table has a soft-delete column; if it does, confirm the deleted-row case is handled and tested.
+- **Seen:** 1 (pr-review, 2026-10)
