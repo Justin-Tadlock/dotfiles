@@ -20,7 +20,7 @@ Entry format:
 ---
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative"; L-011 → CLAUDE.md "Authorization & Data Access"; L-018 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-014 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-027 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-028 → CLAUDE.md "Correctness & Resilience Checklist: Matching pipelines" -->
-<!-- Lessons start below. Next ID: L-030 -->
+<!-- Lessons start below. Next ID: L-031 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -164,4 +164,12 @@ Entry format:
 - **Root cause:** Put the write where the resolved value first became available, without checking how many callers invoke that function or whether they expect it to be read-only.
 - **Rule:** Keep resolve/map functions free of writes. Return what needs persisting (e.g. `{ items, toLink }`) and let the orchestrating caller do the write once, or name the function after the write it performs.
 - **Check:** For each new insert/update/upsert in the diff, look at the enclosing function's name and callers; flag it if the name reads as a lookup/map/get or if it is called per page or batch from more than one site.
+- **Seen:** 1 (pr-review, 2026-10)
+
+### L-030: Treated knowledge of an object key as a barrier without checking how keys were generated
+- **Area:** authorization, storage
+- **Pattern:** An access rule granted a download when any row the caller could see referenced the object's URL. The caller could write that column on their own row, so the rule reduced to "knows the key", and older keys were the client-supplied file name, so they were guessable.
+- **Root cause:** Checked forgeability for one table the rule read but not the others, and assumed keys were unguessable from the current generator without checking every earlier generator.
+- **Rule:** For each row an access rule relies on, confirm the caller can't write the referencing column on any row they can see. Bind the key to the specific record it belongs to and check that record only. Never treat a key as secret unless every generator, current and past, produced unguessable keys.
+- **Check:** For each "a visible row references this URL/key" grant in the diff, list which roles can write that column on rows they can see, and how every historical key format was produced.
 - **Seen:** 1 (pr-review, 2026-10)
