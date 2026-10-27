@@ -20,7 +20,7 @@ Entry format:
 ---
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative"; L-011 → CLAUDE.md "Authorization & Data Access"; L-018 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-014 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-027 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-028 → CLAUDE.md "Correctness & Resilience Checklist: Matching pipelines" -->
-<!-- Lessons start below. Next ID: L-031 -->
+<!-- Lessons start below. Next ID: L-032 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -67,8 +67,8 @@ Entry format:
 - **Pattern:** Invoked the test runner directly instead of through the project's test script, skipping the environment flag that routes database access to the test instance; code that builds its own connection fell back to ambient shell credentials for a shared database.
 - **Root cause:** Assumed the test config alone isolated every connection, without checking how application code picks its database or what credentials were already exported in the shell.
 - **Rule:** Run tests through the project's own scripts, or reproduce their exact environment. When running a runner directly against a database, unset the production/shared connection variables for that command so any non-test connection fails closed.
-- **Check:** Before running integration tests ad hoc, compare the command with the package script's environment, and confirm no shared-database credentials are exported in the shell that runs it.
-- **Seen:** 1 (self-review, 2026-10)
+- **Check:** Before running integration tests ad hoc, compare the command with the package script's environment, and confirm no shared-database credentials are exported in the shell that runs it, or that a shell-exported `NODE_ENV` is overridden for every command in a chained test script (an env prefix applies only to the first command).
+- **Seen:** 2 (self-review, 2026-10; self-review, 2026-10)
 
 ### L-015: Parser enforced different bounds per input representation
 - **Area:** validation, types, persistence
@@ -173,3 +173,11 @@ Entry format:
 - **Rule:** For each row an access rule relies on, confirm the caller can't write the referencing column on any row they can see. Bind the key to the specific record it belongs to and check that record only. Never treat a key as secret unless every generator, current and past, produced unguessable keys.
 - **Check:** For each "a visible row references this URL/key" grant in the diff, list which roles can write that column on rows they can see, and how every historical key format was produced.
 - **Seen:** 1 (pr-review, 2026-10)
+
+### L-031: Designed a data flow between "related" records without checking the uniqueness that defines them
+- **Area:** data modeling, persistence
+- **Pattern:** Planned to copy data from a "previous" record matched by a natural key to the current one, but a unique constraint on that key meant the match was always the same row, so the copy was a no-op and the design added dead code.
+- **Root cause:** Reasoned from field names and query shape without reading the table's unique constraints.
+- **Rule:** Before designing a lookup or copy between records matched by a natural key, check the unique constraints and indexes on that key; if it is unique, the "related" record is the record itself.
+- **Check:** For each query in the diff that finds "other" rows by a set of columns, confirm whether those columns are unique together, and that a test seeds two rows that share them.
+- **Seen:** 1 (self-review, 2026-10)
