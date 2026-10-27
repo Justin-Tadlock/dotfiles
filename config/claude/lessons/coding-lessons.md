@@ -99,8 +99,8 @@ Entry format:
 - **Pattern:** Grouped roles into access tiers by what their names suggested, and enumerated "all roles" from a code enum that was missing a role present in the database; one role got write access it shouldn't have, a deprecated role stayed fully privileged, and a new role was locked out of every guarded route.
 - **Root cause:** Treated the code's role enum and role names as the specification, without reconciling them against the stored role table and the product's stated rules for each role.
 - **Rule:** Before writing role tiers, list every role in the authoritative store (DB/IdP), get each role's intended read/write scope confirmed, and fail closed for any role not explicitly placed. Never use "all values of the enum" as an allow-list unless the enum is verified complete.
-- **Check:** For each role list or `Object.values(<RoleEnum>)` in the diff, compare against the stored role set; confirm a test covers every role (including deprecated and newly added ones) for both read and write.
-- **Seen:** 1 (pr-review, 2026-10)
+- **Check:** For each role list or `Object.values(<RoleEnum>)` in the diff, compare against the stored role set; confirm a test covers every role (including deprecated and newly added ones) for both read and write. Prefer an expectation table typed by the role enum (e.g. `Record<Role, { read; write }>`) so adding a role fails the typecheck until it is placed; per-record checks failing closed do not replace this test.
+- **Seen:** 2 (pr-review, 2026-10; self-review, 2026-10)
 
 ### L-020: Async completion callback acted on whatever UI was current, not the UI that started it
 - **Area:** async, React state, UX
