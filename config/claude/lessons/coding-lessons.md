@@ -103,12 +103,12 @@ Entry format:
 - **Seen:** 1 (pr-review, 2026-10)
 
 ### L-021: Changed a server boundary's contract without auditing clients that bypass the shared helper
-- **Area:** validation, API contracts, error handling
-- **Pattern:** Added stricter input bounds and value normalization to an endpoint and improved error formatting in the shared client helper, but another client called the endpoint directly: it pre-transformed a field past the new bound, persisted the raw (un-normalized) value that a stricter downstream reader rejected, and kept showing the transport error instead of the server's message.
-- **Root cause:** Audited callers of the helper, not every caller of the endpoint, and didn't trace what each client does to a field before sending it or with it afterwards.
-- **Rule:** When changing an endpoint's validation, normalization or error shape, search for every request to that endpoint (not just helper usages). For each, check the transformations applied before sending against the new bounds, persist the server-normalized value rather than the raw input, and route errors through the shared formatter.
-- **Check:** For each tightened bound or normalization in the diff, search for the endpoint path across the client code; for each hit, compare what it sends and stores with the new contract.
-- **Seen:** 1 (pr-review, 2026-10)
+- **Area:** validation, API contracts, error handling, deployment
+- **Pattern:** Added stricter input bounds and value normalization to an endpoint and improved error formatting in the shared client helper, but another client called the endpoint directly: it pre-transformed a field past the new bound, persisted the raw (un-normalized) value that a stricter downstream reader rejected, and kept showing the transport error instead of the server's message. Separately, a new per-request cap was paired with a client change to batch requests, but the old client, still live until the client deploy, sent everything at once and swallowed the error, so the action looked successful while it did nothing.
+- **Root cause:** Audited callers of the helper, not every caller of the endpoint; and checked what each client will send after its update, not what the current client does with the new rejection during the rollout.
+- **Rule:** When changing an endpoint's validation, normalization or error shape, search for every request to that endpoint (not just helper usages). For each, check the transformations applied before sending against the new bounds, persist the server-normalized value rather than the raw input, and route errors through the shared formatter. When the server deploys before its clients, state what each current client does when the new check rejects it (especially callers that ignore or only log errors) and put that window in the deploy plan.
+- **Check:** For each tightened bound or normalization in the diff, search for the endpoint path across the client code; for each hit, compare what it sends and stores with the new contract, and trace how the deployed version handles a rejection (awaited? surfaced to the user?).
+- **Seen:** 2 (pr-review, 2026-10; pr-review, 2026-10)
 
 ### L-022: A row cap was applied before the filters that decide eligibility
 - **Area:** data access, authorization
