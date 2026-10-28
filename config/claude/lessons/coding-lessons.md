@@ -20,7 +20,7 @@ Entry format:
 ---
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative"; L-011 → CLAUDE.md "Authorization & Data Access"; L-018 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-014 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-027 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-028 → CLAUDE.md "Correctness & Resilience Checklist: Matching pipelines" -->
-<!-- Lessons start below. Next ID: L-033 -->
+<!-- Lessons start below. Next ID: L-035 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -189,3 +189,19 @@ Entry format:
 - **Rule:** For any conflict-tolerant insert on a table with soft deletes, check whether the unique key includes deleted rows; if it does, restore the conflicting deleted row (update only where it is deleted) or use a partial unique index on live rows. Test a conflict with a live row and with a deleted row.
 - **Check:** For each `ON CONFLICT ... DO NOTHING` (or equivalent upsert/ignore) in the diff, find the conflict target's constraint and whether the table has a soft-delete column; if it does, confirm the deleted-row case is handled and tested.
 - **Seen:** 1 (pr-review, 2026-10)
+
+### L-033: A handler's narrower role rule lived only in the route wiring
+- **Area:** authorization
+- **Pattern:** An endpoint allowed fewer roles than the shared access helper it called (the helper also let a broader admin role write). Only the route's role guard enforced the narrower set, so the handler itself would have let that broader role act if it were mounted elsewhere or the guard changed.
+- **Root cause:** Treated the route guard as the authoritative role check, while the per-record helper decided scope but not that narrower role set.
+- **Rule:** When an operation's allowed roles are narrower than what the access helper it uses permits, check the role inside the handler as well, before any data access, and test the handler directly with a role the helper would allow.
+- **Check:** For each handler in the diff, compare the route's allowed roles with the roles its access helper accepts for the same access level; if the route is narrower, confirm the handler re-checks the role and a direct test covers it.
+- **Seen:** 1 (pr-review, 2026-10)
+
+### L-034: Denial test passed through a later "not found" instead of the rule it named
+- **Area:** testing, authorization
+- **Pattern:** A unit test asserted a denied caller got 404. With the rule removed, the handler went on to query the test database, found no such record, and also returned 404, so the test still passed.
+- **Root cause:** Assumed no data layer was reachable in unit tests, so any 404 had to come from the rule, without checking how the test environment routes default connections.
+- **Rule:** When a denial shares its response with a later "not found" path, assert that the work after the rule never ran (inject the transaction runner or data layer and assert it was not called), and confirm the test fails with the rule disabled.
+- **Check:** For each test in the diff that expects a denial status, ask whether a later step could return the same status; if so, confirm it asserts a boundary (no query, no transaction, no write) as well as the status.
+- **Seen:** 1 (self-review, 2026-10)
