@@ -20,7 +20,7 @@ Entry format:
 ---
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative"; L-011 → CLAUDE.md "Authorization & Data Access"; L-018 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-014 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-027 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-028 → CLAUDE.md "Correctness & Resilience Checklist: Matching pipelines" -->
-<!-- Lessons start below. Next ID: L-036 -->
+<!-- Lessons start below. Next ID: L-040 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -208,8 +208,40 @@ Entry format:
 
 ### L-035: Set a lock order without auditing every writer's locks
 - **Area:** concurrency, database
-- **Pattern:** Reordered row locks in request handlers to match one documented order, but a background job took explicit table locks on the same tables in the opposite order, so a request holding a row lock and the job could deadlock.
+- **Pattern:** Reordered row locks in request handlers to match one documented order, but a background job took explicit table locks on the same tables in the opposite order, so a request holding a row lock and the job could deadlock. Later, a bulk update written next to them took row locks implicitly, in whatever order the query plan visited the rows.
 - **Root cause:** Listed the writers changed in the diff, not every writer of those tables, and did not count table-level locks in scheduled jobs as part of the order.
-- **Rule:** Before stating or changing a lock order, find every writer of the tables involved (request handlers, jobs, imports, maintenance scripts), including explicit table locks, and make them all follow the same order. Test each pairing that can overlap with a deterministic lock-wait test (hold one lock, wait until the other session blocks, then take the next lock).
-- **Check:** For each new `FOR UPDATE`, `LOCK TABLE` or multi-table write sequence in the diff, search for other code writing those tables and compare the order in which each acquires them.
+- **Rule:** Before stating or changing a lock order, find every writer of the tables involved (request handlers, jobs, imports, maintenance scripts), including explicit table locks, and make them all follow the same order. Test each pairing that can overlap with a deterministic lock-wait test (hold one lock, wait until the other session blocks, then take the next lock). A multi-row UPDATE/DELETE on rows that other writers lock in a set order must first select the ids with `ORDER BY id FOR UPDATE`, then update by id.
+- **Check:** For each new `FOR UPDATE`, `LOCK TABLE` or multi-table write sequence in the diff, search for other code writing those tables and compare the order in which each acquires them, and each multi-row UPDATE/DELETE on those tables.
+- **Seen:** 2 (pr-review, 2026-10; pr-review, 2026-10)
+
+### L-036: Relied on a service's transaction method without checking that it pins one connection
+- **Area:** database, concurrency
+- **Pattern:** Added a row lock inside an existing `service.transaction(...)` call. The service wrapped a connection pool, and its transaction method sent BEGIN and COMMIT as ordinary queries, so each statement could run on a different pooled connection. The lock didn't hold, statements ran outside the transaction, and a connection could be left with a transaction still open.
+- **Root cause:** Trusted the method name without reading whether it checks out a dedicated client.
+- **Rule:** Before relying on a transaction for locks, atomicity or rollback, confirm the helper checks out one connection and runs every statement and the commit on it. With a pool, use the helper that acquires a client and releases it in `finally`.
+- **Check:** For each transaction in the diff, find where its connection comes from. Flag it if the object it runs on may be a pool rather than a checked-out client.
+- **Seen:** 1 (pr-review, 2026-10)
+
+### L-037: Aggregated access check let NULL comparisons pass
+- **Area:** authorization, SQL
+- **Pattern:** An access check required `bool_and(a.x = b.x)` across all requested rows. A NULL column made the comparison NULL, which `bool_and` skips, so a row with a missing link passed whenever another row was consistent.
+- **Root cause:** Treated the comparison as true or false, without considering that SQL aggregates ignore NULL inputs.
+- **Rule:** In aggregated access checks, make every condition count NULL as a denial (e.g. `COALESCE(cond, false)`). Test a batch that mixes a valid row with one whose link is NULL.
+- **Check:** For each `bool_and` / `every` / `count(col)` / `min` in an authorization query, ask what a NULL input does, and confirm a test covers it.
+- **Seen:** 1 (pr-review, 2026-10)
+
+### L-038: After authorizing a record, used its references without checking they belong to it
+- **Area:** authorization, data access
+- **Pattern:** An export authorized a set of records, then joined a related row through a pointer column and returned its content. Clients had once been able to write that pointer, so it could reference another tenant's row. Separately, a bulk write scoped records through one relationship while the access check required two relationships to agree, so it acted on records the check would deny.
+- **Root cause:** Treated authorizing the root record as authorizing everything reachable from it, and wrote the bulk query's scope by hand instead of reusing the check's conditions.
+- **Rule:** When returning or changing data reached through a reference, also require that the referenced row belongs to the authorized record, for example that its back-reference matches. Every query acting on an authorized set must apply the same consistency conditions as the access check.
+- **Check:** For each join on a pointer column in the diff that returns data, confirm it also matches the target row's back-reference or owner. For each bulk write scoped by a relationship, compare its conditions with the access helper's.
+- **Seen:** 1 (pr-review, 2026-10)
+
+### L-039: Treated a status column as the whole lifecycle state
+- **Area:** data modeling, validation
+- **Pattern:** A guard treated any child row with an "in progress" status as active and blocked new ones. A background job ended rows by setting a separate expiry flag, leaving the status unchanged, and reopened the parent, so expired rows still blocked new submissions.
+- **Root cause:** Inferred what "active" means from the status values, without reading every writer that ends a row's lifecycle.
+- **Rule:** Before writing an "active/open/live" predicate, list every writer that moves rows out of that state (jobs, admin actions, soft deletes, expiry flags) and include each one's marker. Test a row ended by each writer.
+- **Check:** For each status-based filter in the diff, look for other columns written alongside status changes (expired/deleted/closed flags or timestamps), and confirm the filter accounts for them.
 - **Seen:** 1 (pr-review, 2026-10)
