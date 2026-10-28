@@ -20,7 +20,7 @@ Entry format:
 ---
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative"; L-011 → CLAUDE.md "Authorization & Data Access"; L-018 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-014 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-027 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-028 → CLAUDE.md "Correctness & Resilience Checklist: Matching pipelines" -->
-<!-- Lessons start below. Next ID: L-035 -->
+<!-- Lessons start below. Next ID: L-036 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -205,3 +205,11 @@ Entry format:
 - **Rule:** When a denial shares its response with a later "not found" path, assert that the work after the rule never ran (inject the transaction runner or data layer and assert it was not called), and confirm the test fails with the rule disabled.
 - **Check:** For each test in the diff that expects a denial status, ask whether a later step could return the same status; if so, confirm it asserts a boundary (no query, no transaction, no write) as well as the status.
 - **Seen:** 1 (self-review, 2026-10)
+
+### L-035: Set a lock order without auditing every writer's locks
+- **Area:** concurrency, database
+- **Pattern:** Reordered row locks in request handlers to match one documented order, but a background job took explicit table locks on the same tables in the opposite order, so a request holding a row lock and the job could deadlock.
+- **Root cause:** Listed the writers changed in the diff, not every writer of those tables, and did not count table-level locks in scheduled jobs as part of the order.
+- **Rule:** Before stating or changing a lock order, find every writer of the tables involved (request handlers, jobs, imports, maintenance scripts), including explicit table locks, and make them all follow the same order. Test each pairing that can overlap with a deterministic lock-wait test (hold one lock, wait until the other session blocks, then take the next lock).
+- **Check:** For each new `FOR UPDATE`, `LOCK TABLE` or multi-table write sequence in the diff, search for other code writing those tables and compare the order in which each acquires them.
+- **Seen:** 1 (pr-review, 2026-10)
