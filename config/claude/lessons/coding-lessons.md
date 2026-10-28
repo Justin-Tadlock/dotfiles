@@ -20,7 +20,7 @@ Entry format:
 ---
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative"; L-011 → CLAUDE.md "Authorization & Data Access"; L-018 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-014 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-027 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-028 → CLAUDE.md "Correctness & Resilience Checklist: Matching pipelines" -->
-<!-- Lessons start below. Next ID: L-042 -->
+<!-- Lessons start below. Next ID: L-043 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -253,3 +253,11 @@ Entry format:
 - **Rule:** When an action has single and bulk forms, derive both from one eligibility function that takes the item and every related record the checks need, and test each refusal through both forms.
 - **Check:** For each pair of single/bulk handlers in the diff, list the single path's refusal conditions and confirm the bulk path applies each one (skip or reject), with a test per condition.
 - **Seen:** 1 (self-review, 2026-10)
+
+### L-042: Read the same rows twice in a transaction assuming both reads see the same data
+- **Area:** concurrency, database
+- **Pattern:** A handler loaded and authorized a set of rows, then wrote using a second query that read those rows again with the same filters. Under READ COMMITTED each statement sees newly committed data, so a concurrent change between the two reads made the write act on fewer rows than were checked, and the request still reported success.
+- **Root cause:** Assumed one transaction gives one snapshot, without checking the isolation level or whether the rows were locked.
+- **Rule:** Write from the rows you authorized (pass their values into the write) rather than re-selecting them, or lock them in the first read. Before choosing locks, check that they can't deadlock with the write's own conflict or row locks in overlapping requests. Test with a change committed on another connection between the check and the write.
+- **Check:** For each write in the diff that uses `INSERT ... SELECT` / `UPDATE ... FROM` over rows an earlier statement in the same transaction read and checked, confirm the rows are locked or the write uses the checked values, and that a test commits a change between the two.
+- **Seen:** 1 (user-feedback, 2026-10)
