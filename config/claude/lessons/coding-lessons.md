@@ -62,13 +62,13 @@ Entry format:
 - **Check:** For each recursive matcher in a policy test, try writing a rule that passes the matcher but doesn't enforce the policy (including one that reaches the clause through a to-many relationship); if one exists, flag it.
 - **Seen:** 2 (pr-review, 2026-10; pr-review, 2026-10)
 
-### L-015: Parser enforced different bounds per input representation
+### L-015: Parser bound did not match the storage type
 - **Area:** validation, types, persistence
-- **Pattern:** A parser accepted a value as a number up to one bound but as a string only up to a smaller one. The value was written as a number, stored in a wide integer column, and read back as a string, so the parser rejected its own output.
-- **Root cause:** Picked a string-length guard by hand instead of deriving both branches from one bound, and didn't test the write → store → read round trip.
-- **Rule:** Give every input representation of a value the same bound, enforced by one shared check (e.g. `Number.isSafeInteger` after conversion). Test that each value the writer can emit is accepted again after a storage round trip, including drivers that return wide integers as strings.
-- **Check:** For each parser in the diff that branches on `typeof`, compare the bounds each branch enforces, and look for a test that feeds the read-back form (e.g. `String(max)`) through it.
-- **Seen:** 1 (pr-review, 2026-10)
+- **Pattern:** A parser accepted a value as a number up to one bound but as a string only up to a smaller one, so it rejected its own output after a storage round trip. Separately, an id parser accepted any safe integer while the column was a 32-bit integer, so an out-of-range id passed validation and the database cast failed with a server error.
+- **Root cause:** Picked bounds by hand (a string-length guard, the language's safe-integer limit) instead of deriving them from the column type, and didn't test the values at the edge of that type.
+- **Rule:** Derive a value's bounds from the storage column's type and enforce them in one shared check used by every input representation and every endpoint that takes the value. Test the largest value the column holds (accepted, then not-found) and one past it (validation error), and that each value the writer emits is accepted again after a storage round trip.
+- **Check:** For each id or numeric parser in the diff, find the column type it is compared with or cast to, and confirm the parser's maximum matches it; compare the bounds of each `typeof` branch, and look for a test at the column's maximum and one past it.
+- **Seen:** 2 (pr-review, 2026-10; pr-review, 2026-10)
 
 ### L-016: Compared counts from two layers that use different equality rules
 - **Area:** authorization, data access, validation
