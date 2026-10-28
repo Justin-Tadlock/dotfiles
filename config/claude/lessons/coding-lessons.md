@@ -20,7 +20,7 @@ Entry format:
 ---
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative"; L-011 → CLAUDE.md "Authorization & Data Access"; L-018 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-014 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-027 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-028 → CLAUDE.md "Correctness & Resilience Checklist: Matching pipelines" -->
-<!-- Lessons start below. Next ID: L-040 -->
+<!-- Lessons start below. Next ID: L-041 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -235,5 +235,13 @@ Entry format:
 - **Pattern:** A guard treated any child row with an "in progress" status as active and blocked new ones. A background job ended rows by setting a separate expiry flag, leaving the status unchanged, and reopened the parent, so expired rows still blocked new submissions.
 - **Root cause:** Inferred what "active" means from the status values, without reading every writer that ends a row's lifecycle.
 - **Rule:** Before writing an "active/open/live" predicate, list every writer that moves rows out of that state (jobs, admin actions, soft deletes, expiry flags) and include each one's marker. Test a row ended by each writer.
-- **Check:** For each status-based filter in the diff, look for other columns written alongside status changes (expired/deleted/closed flags or timestamps), and confirm the filter accounts for them.
-- **Seen:** 1 (pr-review, 2026-10)
+- **Check:** For each status-based filter in the diff, including subqueries that pick "the current" child row (`... LIMIT 1`), look for other columns written alongside status changes (expired/deleted/closed flags or timestamps), and confirm the filter accounts for them and the pick has a deterministic order.
+- **Seen:** 2 (pr-review, 2026-10; self-review, 2026-10)
+
+### L-040: Bulk update set a single-valued parent field from several children in one batch
+- **Area:** persistence, data integrity
+- **Pattern:** A bulk action marked a batch of child rows accepted and set each parent's "accepted child" pointer from them with an `UPDATE ... FROM (VALUES ...)`. When two children of one parent were in the batch, both were marked accepted and the database picked an arbitrary row for the pointer.
+- **Root cause:** Assumed each parent had at most one qualifying child, without checking which writers (resets, reopen jobs, resubmissions) can leave several.
+- **Rule:** When a bulk write derives a single-valued parent field from child rows, choose one child per parent deterministically (or reject the batch) before writing, and list every writer that can create several qualifying children. Test a batch with two children of one parent, in both orders.
+- **Check:** For each `UPDATE ... FROM` / join-driven update in the diff, ask whether the source can contain several rows for one target row; if so, confirm the source is deduplicated with a stated rule and a test covers it.
+- **Seen:** 1 (self-review, 2026-10)
