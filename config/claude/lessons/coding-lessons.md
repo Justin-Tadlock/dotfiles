@@ -62,14 +62,6 @@ Entry format:
 - **Check:** For each recursive matcher in a policy test, try writing a rule that passes the matcher but doesn't enforce the policy (including one that reaches the clause through a to-many relationship); if one exists, flag it.
 - **Seen:** 2 (pr-review, 2026-10; pr-review, 2026-10)
 
-### L-012: Ran a test runner outside the script that sets its environment
-- **Area:** testing, tooling, data safety
-- **Pattern:** Invoked the test runner directly instead of through the project's test script, skipping the environment flag that routes database access to the test instance; code that builds its own connection fell back to ambient shell credentials for a shared database.
-- **Root cause:** Assumed the test config alone isolated every connection, without checking how application code picks its database or what credentials were already exported in the shell.
-- **Rule:** Run tests through the project's own scripts, or reproduce their exact environment. When running a runner directly against a database, unset the production/shared connection variables for that command so any non-test connection fails closed.
-- **Check:** Before running integration tests ad hoc, compare the command with the package script's environment, and confirm no shared-database credentials are exported in the shell that runs it, or that a shell-exported `NODE_ENV` is overridden for every command in a chained test script (an env prefix applies only to the first command).
-- **Seen:** 2 (self-review, 2026-10; self-review, 2026-10)
-
 ### L-015: Parser enforced different bounds per input representation
 - **Area:** validation, types, persistence
 - **Pattern:** A parser accepted a value as a number up to one bound but as a string only up to a smaller one. The value was written as a number, stored in a wide integer column, and read back as a string, so the parser rejected its own output.
