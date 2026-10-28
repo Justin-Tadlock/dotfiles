@@ -246,13 +246,13 @@ Entry format:
 - **Check:** For each `UPDATE ... FROM` / join-driven update in the diff, ask whether the source can contain several rows for one target row; if so, confirm the source is deduplicated with a stated rule and a test covers it.
 - **Seen:** 1 (self-review, 2026-10)
 
-### L-041: Bulk variant of an action skipped a precondition the single variant enforces
-- **Area:** validation, state transitions
-- **Pattern:** The single-item path of an action refused items whose parent was already finalized, but the bulk path only filtered on the item's own status, so a bulk request could overwrite or clear a parent's finalized state that the single path protects.
-- **Root cause:** Wrote the bulk filter from the item's fields alone, without listing the single path's checks and carrying each one over.
-- **Rule:** When an action has single and bulk forms, derive both from one eligibility function that takes the item and every related record the checks need, and test each refusal through both forms.
-- **Check:** For each pair of single/bulk handlers in the diff, list the single path's refusal conditions and confirm the bulk path applies each one (skip or reject), with a test per condition.
-- **Seen:** 1 (self-review, 2026-10)
+### L-041: One variant of an action skipped a precondition or side effect another variant performs
+- **Area:** validation, state transitions, data integrity
+- **Pattern:** The single-item path of an action refused items whose parent was already finalized, but the bulk path only filtered on the item's own status, so a bulk request could overwrite a parent's finalized state. Separately, a bulk "close" that replaced a client mutation copied that mutation's behavior (change one status column), while the server's own single-item reject also updated the other status columns and cleared a related row's pointer to the item; the leftover pointer blocked new submissions later.
+- **Root cause:** Wrote the new variant from the item's own fields or from the code it replaced, without listing every check and every related write the existing variant of the same transition performs.
+- **Rule:** When an action has several forms (single and bulk, user-facing and administrative, an API path replacing a client write), derive them from one function that applies the same eligibility checks and the same related writes (status columns, pointers, counters), or list both and carry each one over. Test each refusal and each related write through every form.
+- **Check:** For each new or changed variant of a state transition in the diff, find the other code paths that perform the same transition; list their refusal conditions and the columns and related rows they write, and confirm the variant applies each one, with a test per item.
+- **Seen:** 2 (self-review, 2026-10; user-feedback, 2026-10)
 
 ### L-042: Read the same rows twice in a transaction assuming both reads see the same data
 - **Area:** concurrency, database
