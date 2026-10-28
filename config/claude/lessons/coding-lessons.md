@@ -20,7 +20,7 @@ Entry format:
 ---
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative"; L-011 → CLAUDE.md "Authorization & Data Access"; L-018 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-014 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-027 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-028 → CLAUDE.md "Correctness & Resilience Checklist: Matching pipelines" -->
-<!-- Lessons start below. Next ID: L-041 -->
+<!-- Lessons start below. Next ID: L-042 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -244,4 +244,12 @@ Entry format:
 - **Root cause:** Assumed each parent had at most one qualifying child, without checking which writers (resets, reopen jobs, resubmissions) can leave several.
 - **Rule:** When a bulk write derives a single-valued parent field from child rows, choose one child per parent deterministically (or reject the batch) before writing, and list every writer that can create several qualifying children. Test a batch with two children of one parent, in both orders.
 - **Check:** For each `UPDATE ... FROM` / join-driven update in the diff, ask whether the source can contain several rows for one target row; if so, confirm the source is deduplicated with a stated rule and a test covers it.
+- **Seen:** 1 (self-review, 2026-10)
+
+### L-041: Bulk variant of an action skipped a precondition the single variant enforces
+- **Area:** validation, state transitions
+- **Pattern:** The single-item path of an action refused items whose parent was already finalized, but the bulk path only filtered on the item's own status, so a bulk request could overwrite or clear a parent's finalized state that the single path protects.
+- **Root cause:** Wrote the bulk filter from the item's fields alone, without listing the single path's checks and carrying each one over.
+- **Rule:** When an action has single and bulk forms, derive both from one eligibility function that takes the item and every related record the checks need, and test each refusal through both forms.
+- **Check:** For each pair of single/bulk handlers in the diff, list the single path's refusal conditions and confirm the bulk path applies each one (skip or reject), with a test per condition.
 - **Seen:** 1 (self-review, 2026-10)
