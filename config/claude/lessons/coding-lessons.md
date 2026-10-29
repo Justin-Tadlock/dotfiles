@@ -20,7 +20,7 @@ Entry format:
 ---
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative"; L-011 → CLAUDE.md "Authorization & Data Access"; L-018 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-014 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-027 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-028 → CLAUDE.md "Correctness & Resilience Checklist: Matching pipelines"; L-004 → CLAUDE.md "Correctness & Resilience Checklist: New states reach every consumer" -->
-<!-- Lessons start below. Next ID: L-046 -->
+<!-- Lessons start below. Next ID: L-047 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -276,4 +276,12 @@ Entry format:
 - **Root cause:** Treated the first step's success as permanent for the rest of the run, without considering that resuming skips it and that the record can change between runs.
 - **Rule:** When steps depend on a state an earlier step set, re-read the stored state before each irreversible step (or atomically on the server) and stop if it no longer holds; treat an unreadable state as a stop. Test a resume after the state was changed elsewhere.
 - **Check:** For each resumable or partial-rerun flow in the diff, find what the skipped steps established, and confirm the remaining steps verify it from storage rather than from client state.
+- **Seen:** 1 (pr-review, 2026-10)
+
+### L-046: Module mocks leaked into other test files under a shared module registry
+- **Area:** testing
+- **Pattern:** The unit test config ran files without isolation. A new test mocked a shared server module, and a later file that mocked the same module got the first file's mock, so its tests failed depending on file order. Resetting the module cache after the file was not enough, because the mock registration stayed.
+- **Root cause:** Assumed each test file gets fresh modules, and then assumed clearing the module cache also removes registered mocks; verified only with the default file order.
+- **Rule:** Before mocking a shared module, check the runner's isolation setting. Without isolation, unregister each mock after the file (e.g. `vi.doUnmock(path)` for every mocked path, then `vi.resetModules()`), and run the suite with shuffled file order (e.g. `--sequence.shuffle.files` with a few seeds) before calling it done.
+- **Check:** For each new `vi.mock` in a test file in the diff, confirm whether the config sets `isolate: false`; if so, look for a matching unmock in `afterAll` and a shuffled-order run.
 - **Seen:** 1 (pr-review, 2026-10)
