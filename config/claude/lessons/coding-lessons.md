@@ -20,7 +20,7 @@ Entry format:
 ---
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative"; L-011 → CLAUDE.md "Authorization & Data Access"; L-018 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-014 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-027 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-028 → CLAUDE.md "Correctness & Resilience Checklist: Matching pipelines"; L-004 → CLAUDE.md "Correctness & Resilience Checklist: New states reach every consumer" -->
-<!-- Lessons start below. Next ID: L-048 -->
+<!-- Lessons start below. Next ID: L-049 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -88,11 +88,11 @@ Entry format:
 
 ### L-020: Async completion callback acted on whatever UI was current, not the UI that started it
 - **Area:** async, React state, UX
-- **Pattern:** A submit handler closed/reset a shared modal or selection when its request resolved, but the user could dismiss the originating UI while the request was pending and open a new instance, so the stale completion closed and reset the new one.
+- **Pattern:** A submit handler closed/reset a shared modal or selection when its request resolved, but the user could dismiss the originating UI while the request was pending and open a new instance, so the stale completion closed and reset the new one. Separately, a page kept a failed run's resume point in state keyed only by the action. The page component stayed mounted when its route parameter changed to another record, so the next record's run resumed partway through.
 - **Root cause:** Treated the completion callback's target as fixed for the request's lifetime without checking whether the user could replace it mid-flight.
-- **Rule:** For any side effect that runs after an await (close, reset, navigate, clear selection), either block replacing the originating UI until the request settles, or capture a session/instance token at submit and apply the effect only if it still matches. Test the interleaving.
-- **Check:** For each `onClose`/`reset`/state-clear call after an `await` in the diff, ask whether the user can dismiss and reopen (or switch) that UI while the request is pending; if so, confirm a guard and a test exist.
-- **Seen:** 1 (pr-review, 2026-10)
+- **Rule:** For any side effect that runs after an await (close, reset, navigate, clear selection), either block replacing the originating UI until the request settles, or capture a session/instance token at submit and apply the effect only if it still matches. Test the interleaving. Key any saved per-record state (retry points, drafts, selections) by the record's id, and remember that a route-param change may not remount the page.
+- **Check:** For each `onClose`/`reset`/state-clear call after an `await` in the diff, ask whether the user can dismiss and reopen (or switch) that UI while the request is pending; if so, confirm a guard and a test exist. For state that describes one record, confirm it's keyed by that record's id or reset when the id changes, and that a test changes the id mid-flow.
+- **Seen:** 2 (pr-review, 2026-10; pr-review, 2026-10)
 
 ### L-021: Changed a server boundary's contract without auditing clients that bypass the shared helper
 - **Area:** validation, API contracts, error handling, deployment
@@ -292,4 +292,12 @@ Entry format:
 - **Root cause:** Tests mocked the client helper below the proxy, and the design followed the API's documented counts without reading its edge-case branches.
 - **Rule:** Before mapping error statuses or messages, trace them through every hop to the browser for each role, and read the API handler's branches for empty or all-skipped input. Test at least one case through the proxy.
 - **Check:** For each status or message branch in client error handling, find the proxy code for that status and role, and the API branch that produces it.
+- **Seen:** 1 (pr-review, 2026-10)
+
+### L-048: Recorded a per-item outcome from what was requested, not what the server confirmed
+- **Area:** API contracts, audit/logging
+- **Pattern:** After a bulk request, the client logged every item it sent except those in failed batches as having succeeded. The server could skip items without failing (already processed) and reported only counts, so skipped items were logged as changed.
+- **Root cause:** Treated "not failed" as "succeeded" and didn't check whether the response says which items each outcome applies to.
+- **Rule:** Attribute an outcome to an item only when the response identifies it. If the response only counts, attribute exactly only when the count settles it (all or none), record the rest as unconfirmed, and ask for item ids in the response.
+- **Check:** For each per-item record written after a bulk call (audit, history, local state), trace where its item list comes from; flag it if it's the request minus failures while the response has a skipped count.
 - **Seen:** 1 (pr-review, 2026-10)
