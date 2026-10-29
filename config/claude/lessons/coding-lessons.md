@@ -20,7 +20,7 @@ Entry format:
 ---
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative"; L-011 → CLAUDE.md "Authorization & Data Access"; L-018 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-014 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-027 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-028 → CLAUDE.md "Correctness & Resilience Checklist: Matching pipelines"; L-004 → CLAUDE.md "Correctness & Resilience Checklist: New states reach every consumer" -->
-<!-- Lessons start below. Next ID: L-044 -->
+<!-- Lessons start below. Next ID: L-046 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -261,3 +261,19 @@ Entry format:
 - **Rule:** In file-system-routed frameworks, keep tests outside the routes directory unless the config limits route files to specific extensions. Import the handler from the test.
 - **Check:** For each new test file in the diff, check whether it sits under a routes directory, and whether the router config excludes `*.test.*`.
 - **Seen:** 1 (self-review, 2026-10)
+
+### L-044: An effect that starts a request depended on a callback recreated every render
+- **Area:** React hooks, async
+- **Pattern:** A child started an upload in an effect when its status became "start", with the parent's upload callback in the dependency array. The parent recreated that callback on every render, so any parent re-render during the upload started it again and saved a duplicate record.
+- **Root cause:** Rewrote the callback's body without checking how its consumer invokes it, and treated the effect's status condition as a once-only trigger.
+- **Rule:** An effect that starts a non-idempotent request must fire once per input: record the input it started for in a ref, or make every dependency stable. Test a re-render while the request is pending.
+- **Check:** For each effect in the diff that calls a request or mutation, list its dependencies and confirm each is stable (memoized or from state) or that a ref guards the start; look for a test that re-renders mid-request.
+- **Seen:** 1 (pr-review, 2026-10)
+
+### L-045: A resume or "finish" action skipped the step that established its precondition
+- **Area:** state transitions, data integrity
+- **Pattern:** A multi-step status change could resume at a failed step or "finish" without its first step (setting the status). The later steps (closing items, blocking accounts) trusted the page's copy of the status, so a stale page could run them against a record whose status had since been changed back.
+- **Root cause:** Treated the first step's success as permanent for the rest of the run, without considering that resuming skips it and that the record can change between runs.
+- **Rule:** When steps depend on a state an earlier step set, re-read the stored state before each irreversible step (or atomically on the server) and stop if it no longer holds; treat an unreadable state as a stop. Test a resume after the state was changed elsewhere.
+- **Check:** For each resumable or partial-rerun flow in the diff, find what the skipped steps established, and confirm the remaining steps verify it from storage rather than from client state.
+- **Seen:** 1 (pr-review, 2026-10)
