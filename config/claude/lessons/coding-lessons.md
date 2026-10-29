@@ -20,7 +20,7 @@ Entry format:
 ---
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative"; L-011 → CLAUDE.md "Authorization & Data Access"; L-018 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-014 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-027 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-028 → CLAUDE.md "Correctness & Resilience Checklist: Matching pipelines"; L-004 → CLAUDE.md "Correctness & Resilience Checklist: New states reach every consumer" -->
-<!-- Lessons start below. Next ID: L-047 -->
+<!-- Lessons start below. Next ID: L-048 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -264,11 +264,11 @@ Entry format:
 
 ### L-044: An effect that starts a request depended on a callback recreated every render
 - **Area:** React hooks, async
-- **Pattern:** A child started an upload in an effect when its status became "start", with the parent's upload callback in the dependency array. The parent recreated that callback on every render, so any parent re-render during the upload started it again and saved a duplicate record.
+- **Pattern:** A child started an upload in an effect when its status became "start", with the parent's upload callback in the dependency array. The parent recreated that callback on every render, so any parent re-render during the upload started it again and saved a duplicate record. The first fix kept the guard in the child, which resets when list keys shift (index keys, prepended items) and remount it, so dropping another file still restarted the upload.
 - **Root cause:** Rewrote the callback's body without checking how its consumer invokes it, and treated the effect's status condition as a once-only trigger.
-- **Rule:** An effect that starts a non-idempotent request must fire once per input: record the input it started for in a ref, or make every dependency stable. Test a re-render while the request is pending.
-- **Check:** For each effect in the diff that calls a request or mutation, list its dependencies and confirm each is stable (memoized or from state) or that a ref guards the start; look for a test that re-renders mid-request.
-- **Seen:** 1 (pr-review, 2026-10)
+- **Rule:** An effect that starts a non-idempotent request must fire once per input: record the input it started for in the component that owns the list (keyed by the input, so it survives child remounts), or make every dependency stable. Test a re-render and a remount while the request is pending.
+- **Check:** For each effect in the diff that calls a request or mutation, list its dependencies and confirm each is stable (memoized or from state) or that a ref guards the start; look for a test that re-renders mid-request. If the guard lives in a list item, check whether its key can change while the request runs.
+- **Seen:** 2 (pr-review, 2026-10; pr-review, 2026-10)
 
 ### L-045: A resume or "finish" action skipped the step that established its precondition
 - **Area:** state transitions, data integrity
@@ -284,4 +284,12 @@ Entry format:
 - **Root cause:** Assumed each test file gets fresh modules, and then assumed clearing the module cache also removes registered mocks; verified only with the default file order.
 - **Rule:** Before mocking a shared module, check the runner's isolation setting. Without isolation, unregister each mock after the file (e.g. `vi.doUnmock(path)` for every mocked path, then `vi.resetModules()`), and run the suite with shuffled file order (e.g. `--sequence.shuffle.files` with a few seeds) before calling it done.
 - **Check:** For each new `vi.mock` in a test file in the diff, confirm whether the config sets `isolate: false`; if so, look for a matching unmock in `afterAll` and a shuffled-order run.
+- **Seen:** 1 (pr-review, 2026-10)
+
+### L-047: Mapped API errors on the client without checking what the proxy in between forwards
+- **Area:** error handling, API contracts, testing
+- **Pattern:** The client mapped the API's 400 messages, but a proxy turned 400s into 500s with a generic body for most roles, so the mapping only worked for one role. Separately, the API refused an "all items already handled" batch with a 400 instead of returning a zero count, so a skip was reported as a failure.
+- **Root cause:** Tests mocked the client helper below the proxy, and the design followed the API's documented counts without reading its edge-case branches.
+- **Rule:** Before mapping error statuses or messages, trace them through every hop to the browser for each role, and read the API handler's branches for empty or all-skipped input. Test at least one case through the proxy.
+- **Check:** For each status or message branch in client error handling, find the proxy code for that status and role, and the API branch that produces it.
 - **Seen:** 1 (pr-review, 2026-10)
