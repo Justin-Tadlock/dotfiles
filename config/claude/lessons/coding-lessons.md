@@ -20,7 +20,7 @@ Entry format:
 ---
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative"; L-011 → CLAUDE.md "Authorization & Data Access"; L-018 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-014 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-027 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-028 → CLAUDE.md "Correctness & Resilience Checklist: Matching pipelines" -->
-<!-- Lessons start below. Next ID: L-043 -->
+<!-- Lessons start below. Next ID: L-044 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -40,11 +40,11 @@ Entry format:
 
 ### L-004: Made a new state reachable without auditing its consumers
 - **Area:** state modeling, rendering
-- **Pattern:** Added handling for a new state in one place, but a value rendered alongside it (an optional ID interpolated into a URL) was undefined in that state, producing a broken link.
+- **Pattern:** Added handling for a new state in one place, but a value rendered alongside it (an optional ID interpolated into a URL) was undefined in that state, producing a broken link. Separately, a bulk action that used to throw on any failure was changed to resolve with partial counts, and a caller that ran an audit write after the await still logged every item as done.
 - **Root cause:** Changed a producer without tracing what each consumer renders in the newly reachable state.
-- **Rule:** When a change makes a new state reachable, find every consumer of the values involved and check its behavior in that state. Prefer pure helpers that return `string | null` for derived URLs and render a link only when non-null.
+- **Rule:** When a change makes a new state reachable, find every consumer of the values involved and check its behavior in that state. Prefer pure helpers that return `string | null` for derived URLs and render a link only when non-null. When a function changes from throwing to resolving with partial results, treat the resolution as a new state and re-check every caller's code after the await.
 - **Check:** For each new branch/state in the diff, list the values that can be undefined or null in it and search for their uses, especially in template strings, URLs, and hrefs.
-- **Seen:** 2 (pr-review, 2026-10; pr-review, 2026-10)
+- **Seen:** 3 (pr-review, 2026-10; pr-review, 2026-10; self-review, 2026-10)
 
 ### L-005: Conditionally unmounting content leaked side effects it registered
 - **Area:** React lifecycle, global state
@@ -261,3 +261,11 @@ Entry format:
 - **Rule:** Write from the rows you authorized (pass their values into the write) rather than re-selecting them, or lock them in the first read. Before choosing locks, check that they can't deadlock with the write's own conflict or row locks in overlapping requests. Test with a change committed on another connection between the check and the write.
 - **Check:** For each write in the diff that uses `INSERT ... SELECT` / `UPDATE ... FROM` over rows an earlier statement in the same transaction read and checked, confirm the rows are locked or the write uses the checked values, and that a test commits a change between the two.
 - **Seen:** 1 (user-feedback, 2026-10)
+
+### L-043: Put a test file inside a directory the framework serves as routes
+- **Area:** testing, deployment
+- **Pattern:** Added tests next to API route handlers in a file-system-routed framework. The build config didn't exclude test files, so each would have been built and served as an endpoint.
+- **Root cause:** Followed the existing "test next to source" layout without checking how the framework treats every file in that directory.
+- **Rule:** In file-system-routed frameworks, keep tests outside the routes directory unless the config limits route files to specific extensions. Import the handler from the test.
+- **Check:** For each new test file in the diff, check whether it sits under a routes directory, and whether the router config excludes `*.test.*`.
+- **Seen:** 1 (self-review, 2026-10)
