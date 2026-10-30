@@ -19,7 +19,7 @@ Entry format:
 
 ---
 
-<!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative"; L-011 → CLAUDE.md "Authorization & Data Access"; L-018 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-014 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-027 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-028 → CLAUDE.md "Correctness & Resilience Checklist: Matching pipelines"; L-004 → CLAUDE.md "Correctness & Resilience Checklist: New states reach every consumer" -->
+<!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative"; L-011 → CLAUDE.md "Authorization & Data Access"; L-018 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-014 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-027 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-028 → CLAUDE.md "Correctness & Resilience Checklist: Matching pipelines"; L-004 → CLAUDE.md "Correctness & Resilience Checklist: New states reach every consumer"; L-020 → CLAUDE.md "Correctness & Resilience Checklist: Async work outlives its UI" -->
 <!-- Lessons start below. Next ID: L-049 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
@@ -85,14 +85,6 @@ Entry format:
 - **Rule:** Before writing role tiers, list every role in the authoritative store (DB/IdP), get each role's intended read/write scope confirmed, and fail closed for any role not explicitly placed. Never use "all values of the enum" as an allow-list unless the enum is verified complete.
 - **Check:** For each role list or `Object.values(<RoleEnum>)` in the diff, compare against the stored role set; confirm a test covers every role (including deprecated and newly added ones) for both read and write. Prefer an expectation table typed by the role enum (e.g. `Record<Role, { read; write }>`) so adding a role fails the typecheck until it is placed; per-record checks failing closed do not replace this test.
 - **Seen:** 2 (pr-review, 2026-10; self-review, 2026-10)
-
-### L-020: Async completion callback acted on whatever UI was current, not the UI that started it
-- **Area:** async, React state, UX
-- **Pattern:** A submit handler closed/reset a shared modal or selection when its request resolved, but the user could dismiss the originating UI while the request was pending and open a new instance, so the stale completion closed and reset the new one. Separately, a page kept a failed run's resume point in state keyed only by the action. The page component stayed mounted when its route parameter changed to another record, so the next record's run resumed partway through.
-- **Root cause:** Treated the completion callback's target as fixed for the request's lifetime without checking whether the user could replace it mid-flight.
-- **Rule:** For any side effect that runs after an await (close, reset, navigate, clear selection), either block replacing the originating UI until the request settles, or capture a session/instance token at submit and apply the effect only if it still matches. Test the interleaving. Key any saved per-record state (retry points, drafts, selections) by the record's id, and remember that a route-param change may not remount the page.
-- **Check:** For each `onClose`/`reset`/state-clear call after an `await` in the diff, ask whether the user can dismiss and reopen (or switch) that UI while the request is pending; if so, confirm a guard and a test exist. For state that describes one record, confirm it's keyed by that record's id or reset when the id changes, and that a test changes the id mid-flow.
-- **Seen:** 2 (pr-review, 2026-10; pr-review, 2026-10)
 
 ### L-021: Changed a server boundary's contract without auditing clients that bypass the shared helper
 - **Area:** validation, API contracts, error handling, deployment
