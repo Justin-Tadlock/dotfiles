@@ -288,8 +288,8 @@ Entry format:
 
 ### L-048: Recorded a per-item outcome from what was requested, not what the server confirmed
 - **Area:** API contracts, audit/logging
-- **Pattern:** After a bulk request, the client logged every item it sent except those in failed batches as having succeeded. The server could skip items without failing (already processed) and reported only counts, so skipped items were logged as changed.
-- **Root cause:** Treated "not failed" as "succeeded" and didn't check whether the response says which items each outcome applies to.
-- **Rule:** Attribute an outcome to an item only when the response identifies it. If the response only counts, attribute exactly only when the count settles it (all or none), record the rest as unconfirmed, and ask for item ids in the response.
-- **Check:** For each per-item record written after a bulk call (audit, history, local state), trace where its item list comes from; flag it if it's the request minus failures while the response has a skipped count.
-- **Seen:** 1 (pr-review, 2026-10)
+- **Pattern:** After a bulk request, the client logged every item it sent except those in failed batches as having succeeded. The server could skip items without failing (already processed) and reported only counts, so skipped items were logged as changed. Separately, a count-only fallback compared the server's count with the batch the client had fetched, not the subset it actually sent after filtering, so a fully applied request was recorded as partial and items never sent were recorded as requested.
+- **Root cause:** Treated "not failed" as "succeeded", and treated the fetched batch as the request, without checking which items each count actually covers.
+- **Rule:** Attribute an outcome to an item only when the response identifies it. If the response only counts, compare the count with the items actually sent in that request (after any client-side filtering), attribute exactly only when the count settles it (all or none), record the rest as unconfirmed, and ask for item ids in the response.
+- **Check:** For each per-item record written after a bulk call (audit, history, local state), trace where its item list comes from; flag it if it's the request minus failures while the response has a skipped count, or if a count is compared with a list that includes items the request didn't send.
+- **Seen:** 2 (pr-review, 2026-10; self-review, 2026-11)
