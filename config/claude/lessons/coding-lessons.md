@@ -20,7 +20,7 @@ Entry format:
 ---
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative"; L-011 → CLAUDE.md "Authorization & Data Access"; L-018 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-014 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-027 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-028 → CLAUDE.md "Correctness & Resilience Checklist: Matching pipelines"; L-004 → CLAUDE.md "Correctness & Resilience Checklist: New states reach every consumer"; L-020 → CLAUDE.md "Correctness & Resilience Checklist: Async work outlives its UI" -->
-<!-- Lessons start below. Next ID: L-049 -->
+<!-- Lessons start below. Next ID: L-050 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -293,3 +293,11 @@ Entry format:
 - **Rule:** Attribute an outcome to an item only when the response identifies it. If the response only counts, compare the count with the items actually sent in that request (after any client-side filtering), attribute exactly only when the count settles it (all or none), record the rest as unconfirmed, and ask for item ids in the response.
 - **Check:** For each per-item record written after a bulk call (audit, history, local state), trace where its item list comes from; flag it if it's the request minus failures while the response has a skipped count, or if a count is compared with a list that includes items the request didn't send.
 - **Seen:** 2 (pr-review, 2026-10; self-review, 2026-11)
+
+### L-049: A migration treated "no row references this object" as proof that nobody else owned it
+- **Area:** authorization, storage, data migration
+- **Pattern:** A migration copied objects into a per-owner namespace that a broader access rule serves, and skipped only the objects some reference row pointed at. Reference rows could be hard-deleted, so an object detached that way looked unowned and would have been granted to whoever pointed at it. The code comments claimed such objects were excluded.
+- **Root cause:** Treated the absence of a reference row as evidence, without listing the ways a row can disappear without a trace.
+- **Rule:** Before a filter grants or widens access because a row is absent, list every way that row can disappear (hard deletes, cascades, cleanup jobs). If absence can't be established, fail closed or have a person review each candidate, and state the gap in the code and the runbook instead of claiming coverage.
+- **Check:** For each `NOT EXISTS` or "no reference found" condition in the diff that leads to copying, linking or granting access, check whether the referenced table allows hard deletes. If it does, look for the review step or the fail-closed path.
+- **Seen:** 1 (pr-review, 2026-11)
