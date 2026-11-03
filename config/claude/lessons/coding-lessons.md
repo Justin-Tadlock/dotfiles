@@ -20,7 +20,7 @@ Entry format:
 ---
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative"; L-011 → CLAUDE.md "Authorization & Data Access"; L-018 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-014 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-027 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-028 → CLAUDE.md "Correctness & Resilience Checklist: Matching pipelines"; L-004 → CLAUDE.md "Correctness & Resilience Checklist: New states reach every consumer"; L-020 → CLAUDE.md "Correctness & Resilience Checklist: Async work outlives its UI"; L-049 → CLAUDE.md "Authorization & Data Access"; L-048 → CLAUDE.md "Correctness & Resilience Checklist: Outcomes from what was confirmed" -->
-<!-- Lessons start below. Next ID: L-053 -->
+<!-- Lessons start below. Next ID: L-054 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -309,3 +309,11 @@ Entry format:
 - **Rule:** When new code depends on a helper persisting or sending a value, read the helper down to what it actually writes, and add a test on the payload that reaches the storage call (not on the arguments passed to the helper). A defect in untouched code becomes part of the change once the change relies on it; fix it there or narrow the change.
 - **Check:** For each field the diff passes to a logging, persistence or request helper, confirm the helper's body forwards it to the final write, and that some test asserts it in that write's payload. Flag any helper whose parameter type has fields its body never reads.
 - **Seen:** 1 (pr-review, 2026-11)
+
+### L-053: Made an untrusted response type honest by erasing its shape
+- **Area:** types, API contracts, validation
+- **Pattern:** Replaced a response generic that was asserted but never checked with an opaque `Record<string, unknown>` / `unknown` so the runtime checks below it were required. Developers lost the only in-code description of the response, and property typos compiled.
+- **Root cause:** Treated the request generic only as a type claim to remove, not also as documentation of the contract.
+- **Rule:** For unvalidated responses, keep the field names and drop only the value types (e.g. `type Unchecked<T> = { [K in keyof T]?: unknown }`), typed from the same interface the function returns after validation, so there's one source of truth.
+- **Check:** For each request generic or cast in the diff typed `unknown`, `any` or `Record<string, unknown>`, confirm the expected fields are still named by a type developers can navigate to.
+- **Seen:** 1 (user-feedback, 2026-11)
