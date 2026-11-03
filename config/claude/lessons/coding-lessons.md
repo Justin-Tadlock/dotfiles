@@ -20,7 +20,7 @@ Entry format:
 ---
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative"; L-011 → CLAUDE.md "Authorization & Data Access"; L-018 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-014 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-027 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-028 → CLAUDE.md "Correctness & Resilience Checklist: Matching pipelines"; L-004 → CLAUDE.md "Correctness & Resilience Checklist: New states reach every consumer"; L-020 → CLAUDE.md "Correctness & Resilience Checklist: Async work outlives its UI"; L-049 → CLAUDE.md "Authorization & Data Access"; L-048 → CLAUDE.md "Correctness & Resilience Checklist: Outcomes from what was confirmed" -->
-<!-- Lessons start below. Next ID: L-052 -->
+<!-- Lessons start below. Next ID: L-053 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -300,4 +300,12 @@ Entry format:
 - **Root cause:** Treated the object literal as a set without considering its prototype chain.
 - **Rule:** Check untrusted keys against a `Set`, a `Map`, or an own-property test (`Object.hasOwn` / `hasOwnProperty.call`), never `in` or a bare index. Test with `constructor` and `__proto__`.
 - **Check:** For each `x in OBJ` or `OBJ[input]` in the diff where the input is untrusted, confirm it uses an own-property or Map/Set lookup.
+- **Seen:** 1 (pr-review, 2026-11)
+
+### L-052: Relied on a shared helper to store a field without checking that it does
+- **Area:** audit/logging, API contracts
+- **Pattern:** New code passed a field to a shared logging helper whose parameter type declared it, but the helper copied only a few named fields into the stored record and dropped the rest. The new feature's records were missing the data it was written to capture. The gap was noticed in review but filed as an existing bug because the helper was untouched.
+- **Root cause:** Took the helper's parameter type as proof the field was stored, and judged the gap by who wrote the helper rather than by whether the new feature depended on it.
+- **Rule:** When new code depends on a helper persisting or sending a value, read the helper down to what it actually writes, and add a test on the payload that reaches the storage call (not on the arguments passed to the helper). A defect in untouched code becomes part of the change once the change relies on it; fix it there or narrow the change.
+- **Check:** For each field the diff passes to a logging, persistence or request helper, confirm the helper's body forwards it to the final write, and that some test asserts it in that write's payload. Flag any helper whose parameter type has fields its body never reads.
 - **Seen:** 1 (pr-review, 2026-11)
