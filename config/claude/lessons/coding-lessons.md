@@ -20,7 +20,7 @@ Entry format:
 ---
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative"; L-011 → CLAUDE.md "Authorization & Data Access"; L-018 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-014 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-027 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-028 → CLAUDE.md "Correctness & Resilience Checklist: Matching pipelines"; L-004 → CLAUDE.md "Correctness & Resilience Checklist: New states reach every consumer"; L-020 → CLAUDE.md "Correctness & Resilience Checklist: Async work outlives its UI"; L-049 → CLAUDE.md "Authorization & Data Access" -->
-<!-- Lessons start below. Next ID: L-050 -->
+<!-- Lessons start below. Next ID: L-051 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -293,3 +293,11 @@ Entry format:
 - **Rule:** Attribute an outcome to an item only when the response identifies it. If the response only counts, compare the count with the items actually sent in that request (after any client-side filtering), attribute exactly only when the count settles it (all or none), record the rest as unconfirmed, and ask for item ids in the response.
 - **Check:** For each per-item record written after a bulk call (audit, history, local state), trace where its item list comes from; flag it if it's the request minus failures while the response has a skipped count, or if a count is compared with a list that includes items the request didn't send.
 - **Seen:** 2 (pr-review, 2026-10; self-review, 2026-11)
+
+### L-050: Safety gates were wired only in an untested entry point
+- **Area:** testing, scripts, separation of concerns
+- **Pattern:** An operator script's pure planning and per-item steps were unit tested, but the rules that combine them (apply only with a reviewed plan, filter to the reviewed items, ask before writing, write the rollback record before the first item, exit non-zero on failure) lived only in the entry function that parses arguments and touches files. They were correct when written, but a refactor could have broken any of them without a test failing.
+- **Root cause:** Treated the entry point as glue and checked the gates by reading it, without noticing that the safety controls added in review lived only there.
+- **Rule:** Keep a script's entry point to argument parsing, file I/O and wiring. Put the orchestration in a function that takes its data access, storage, prompt and record sink as parameters, with a mode type that makes unsafe combinations unrepresentable (e.g. apply requires the reviewed set), and test each gate there. Confirm each test fails when its gate is removed.
+- **Check:** For each script or job entry point in the diff, list the conditions it checks and the order of its side effects; flag any that only that untested function enforces.
+- **Seen:** 1 (pr-review, 2026-11)
