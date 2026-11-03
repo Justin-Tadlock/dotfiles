@@ -19,7 +19,7 @@ Entry format:
 
 ---
 
-<!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative"; L-011 → CLAUDE.md "Authorization & Data Access"; L-018 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-014 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-027 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-028 → CLAUDE.md "Correctness & Resilience Checklist: Matching pipelines"; L-004 → CLAUDE.md "Correctness & Resilience Checklist: New states reach every consumer"; L-020 → CLAUDE.md "Correctness & Resilience Checklist: Async work outlives its UI"; L-049 → CLAUDE.md "Authorization & Data Access" -->
+<!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative"; L-011 → CLAUDE.md "Authorization & Data Access"; L-018 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-014 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-027 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-028 → CLAUDE.md "Correctness & Resilience Checklist: Matching pipelines"; L-004 → CLAUDE.md "Correctness & Resilience Checklist: New states reach every consumer"; L-020 → CLAUDE.md "Correctness & Resilience Checklist: Async work outlives its UI"; L-049 → CLAUDE.md "Authorization & Data Access"; L-048 → CLAUDE.md "Correctness & Resilience Checklist: Outcomes from what was confirmed" -->
 <!-- Lessons start below. Next ID: L-052 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
@@ -285,14 +285,6 @@ Entry format:
 - **Rule:** Before mapping error statuses or messages, trace them through every hop to the browser for each role, and read the API handler's branches for empty or all-skipped input. Test at least one case through the proxy.
 - **Check:** For each status or message branch in client error handling, find the proxy code for that status and role, and the API branch that produces it.
 - **Seen:** 1 (pr-review, 2026-10)
-
-### L-048: Recorded a per-item outcome from what was requested, not what the server confirmed
-- **Area:** API contracts, audit/logging
-- **Pattern:** After a bulk request, the client logged every item it sent except those in failed batches as having succeeded. The server could skip items without failing (already processed) and reported only counts, so skipped items were logged as changed. Separately, a count-only fallback compared the server's count with the batch the client had fetched, not the subset it actually sent after filtering, so a fully applied request was recorded as partial and items never sent were recorded as requested.
-- **Root cause:** Treated "not failed" as "succeeded", and treated the fetched batch as the request, without checking which items each count actually covers.
-- **Rule:** Attribute an outcome to an item only when the response identifies it. If the response only counts, compare the count with the items actually sent in that request (after any client-side filtering), attribute exactly only when the count settles it (all or none), record the rest as unconfirmed, and ask for item ids in the response. Likewise, scope an action's side effects (cleanup, invalidation, notifications) to the items it actually changed, not the items requested.
-- **Check:** For each per-item record written after a bulk call (audit, history, local state), trace where its item list comes from; flag it if it's the request minus failures while the response has a skipped count, or if a count is compared with a list that includes items the request didn't send. For each side effect that follows a filtered write, confirm it uses the ids the write changed.
-- **Seen:** 3 (pr-review, 2026-10; self-review, 2026-11; pr-review, 2026-11)
 
 ### L-050: Safety gates were wired only in an untested entry point
 - **Area:** testing, scripts, separation of concerns
