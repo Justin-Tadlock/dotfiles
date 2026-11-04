@@ -20,7 +20,7 @@ Entry format:
 ---
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative"; L-011 → CLAUDE.md "Authorization & Data Access"; L-018 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-014 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-027 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-028 → CLAUDE.md "Correctness & Resilience Checklist: Matching pipelines"; L-004 → CLAUDE.md "Correctness & Resilience Checklist: New states reach every consumer"; L-020 → CLAUDE.md "Correctness & Resilience Checklist: Async work outlives its UI"; L-049 → CLAUDE.md "Authorization & Data Access"; L-048 → CLAUDE.md "Correctness & Resilience Checklist: Outcomes from what was confirmed" -->
-<!-- Lessons start below. Next ID: L-054 -->
+<!-- Lessons start below. Next ID: L-055 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -317,3 +317,11 @@ Entry format:
 - **Rule:** For unvalidated responses, keep the field names and drop only the value types (e.g. `type Unchecked<T> = { [K in keyof T]?: unknown }`), typed from the same interface the function returns after validation, so there's one source of truth.
 - **Check:** For each request generic or cast in the diff typed `unknown`, `any` or `Record<string, unknown>`, confirm the expected fields are still named by a type developers can navigate to.
 - **Seen:** 1 (user-feedback, 2026-11)
+
+### L-054: Cherry-picked a string key without checking what it matches on the target branch
+- **Area:** git, configuration, cross-branch ports
+- **Pattern:** Ported a config entry whose keys are matched by string against definitions elsewhere (column ids, field paths). The cherry-pick applied cleanly, but the target branch still used the older definitions, so nothing matched and the feature silently disappeared for every user.
+- **Root cause:** Treated a clean apply as proof the change fit the target, without looking at the code the values are matched against, which was outside the diff.
+- **Rule:** When porting a value that is looked up by string (ids, keys, paths, event names), find what it is compared with on the target branch and confirm it still matches; if the two sides drifted, keep the target's value. Add a test that runs the real matching rule over the real definitions so a mismatch fails.
+- **Check:** For each cherry-picked change to a config map, registry or key-to-handler table, search the target branch for the consumer that matches those keys and compare both sides; look for a test that feeds the actual definitions through the lookup.
+- **Seen:** 1 (self-review, 2026-11)
