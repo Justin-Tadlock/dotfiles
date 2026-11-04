@@ -20,7 +20,7 @@ Entry format:
 ---
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative"; L-011 → CLAUDE.md "Authorization & Data Access"; L-018 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-014 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-027 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-028 → CLAUDE.md "Correctness & Resilience Checklist: Matching pipelines"; L-004 → CLAUDE.md "Correctness & Resilience Checklist: New states reach every consumer"; L-020 → CLAUDE.md "Correctness & Resilience Checklist: Async work outlives its UI"; L-049 → CLAUDE.md "Authorization & Data Access"; L-048 → CLAUDE.md "Correctness & Resilience Checklist: Outcomes from what was confirmed" -->
-<!-- Lessons start below. Next ID: L-056 -->
+<!-- Lessons start below. Next ID: L-058 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -325,3 +325,19 @@ Entry format:
 - **Rule:** When porting a value that is looked up by string (ids, keys, paths, event names), find what it is compared with on the target branch and confirm it still matches; if the two sides drifted, keep the target's value. Add a test that runs the real matching rule over the real definitions so a mismatch fails.
 - **Check:** For each cherry-picked change to a config map, registry or key-to-handler table, search the target branch for the consumer that matches those keys and compare both sides; look for a test that feeds the actual definitions through the lookup.
 - **Seen:** 1 (self-review, 2026-11)
+
+### L-056: Stopped selecting a field but left the result type declaring it
+- **Area:** types, API contracts
+- **Pattern:** Swapped one field for another in a query's selection set. The query's result type was a broad entity type intersected with extras, so it still declared the dropped field as required, and a mapper labelled the rows with the full entity type. Code reading the old field would have compiled and received `undefined`.
+- **Root cause:** Changed the selection without checking how the result type was built; assumed the type tracked the query.
+- **Rule:** When a query stops selecting a field, remove it from the result type (e.g. `Omit<Entity, 'field'> & {...}`) and retype any callbacks that label those rows with the broader entity type. Let the typecheck find the readers.
+- **Check:** For each field removed from a selection set in the diff, find the type the result is cast to; if it still declares the field (directly or through an intersected base type), flag it.
+- **Seen:** 1 (pr-review, 2026-11)
+
+### L-057: Appended default sort keys without checking overlap with the user's sort
+- **Area:** data access, pagination
+- **Pattern:** Added fixed tiebreakers (name, then id) after the user's sort to make pagination stable. When the user sorted by one of the tiebreaker fields, the order list named that field twice with opposite directions, relying on unverified server behavior for duplicates.
+- **Root cause:** Built the list as "user input + defaults" without considering inputs that overlap the defaults.
+- **Rule:** When appending default keys (sort tiebreakers, default filters, default fields) to user-supplied ones, skip defaults that name a field the user already set, and test with a user value equal to each default.
+- **Check:** For each `[userValue, ...defaults]` composition in the diff, ask what happens when the user's value uses a default's key; confirm a test covers it.
+- **Seen:** 1 (pr-review, 2026-11)
