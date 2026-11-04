@@ -363,5 +363,5 @@ Entry format:
 - **Pattern:** An apply step took a reviewed dry-run file and checked it against some run inputs, but a newly added option that changed which items the apply would write was not compared with the value used for the dry run, so the operator could apply with a setting nobody reviewed.
 - **Root cause:** Added the option to the run without listing which checks bind the reviewed file to the apply, and documented "use the same value" instead of enforcing it.
 - **Rule:** When an apply is gated on a reviewed dry run, record every input that changes what the apply writes in the dry-run output, and refuse the apply unless each one matches. Test a mismatch for each input, and an older dry-run file that lacks the field.
-- **Check:** For each new option in a script with dry-run/apply modes, confirm it is written to the dry-run output and compared when the reviewed file is loaded.
+- **Check:** For each new option in a script with dry-run/apply modes, confirm it is written to the dry-run output and compared when the reviewed file is loaded, and that a test feeds the output the dry run actually writes, after JSON serialization, into the reviewed-file loader.
 - **Seen:** 1 (self-review, 2026-11)
