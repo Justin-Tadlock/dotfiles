@@ -326,10 +326,10 @@ Entry format:
 - **Check:** For each cherry-picked change to a config map, registry or key-to-handler table, search the target branch for the consumer that matches those keys and compare both sides; look for a test that feeds the actual definitions through the lookup.
 - **Seen:** 1 (self-review, 2026-11)
 
-### L-055: A test re-derived a library's generated key with a local helper instead of asking the library
+### L-055: A test derived generated keys from a different code path than the app uses
 - **Area:** testing, configuration, third-party libraries
-- **Pattern:** A config key had to equal an id that a table library derives from a nested accessor path. The test built the expected ids with a project helper that replaced only the first separator, while the library replaced every one. The key was written to match the helper, so the tests passed and the feature still did not appear in the app.
-- **Root cause:** Assumed the project helper mirrored the library's derivation because existing single-separator keys agreed with it, without reading the library's code or testing a multi-separator value.
-- **Rule:** When a value must equal something a library generates (column ids, route names, cache keys, event names), get the expected value from the library itself in the test (build a real instance and read its output), not from a re-implementation. Before relying on a helper that claims to match a library, read the library code and test an input where the two could differ.
-- **Check:** For each test in the diff that computes the expected ids or keys a library generates, confirm it gets them from the library rather than from a local helper or copied logic, and that some input has more than one nesting level or separator.
-- **Seen:** 1 (self-review, 2026-11)
+- **Pattern:** A config key had to equal a column id. The first test built expected ids with a project helper, the fix switched to the library's own derivation, but the app's table wrapper overwrote ids with its own rule before creating the table. Both tests passed while the feature stayed hidden.
+- **Root cause:** Picked a source of truth for the generated value (helper, then library) without tracing every transform the app applies between the definitions and the consumer that matches them.
+- **Rule:** When a value must equal something generated at runtime (column ids, route names, cache keys), trace the path from definition to consumer in the app and build the expected value through that same code. Extract any wrapper preprocessing into a shared function the test calls. Confirm the test fails with the old value.
+- **Check:** For each test computing expected generated ids/keys, list the transforms the production component applies before generation (e.g. a `useMemo` that rewrites options) and confirm the test runs the same function; look for an input with more than one separator.
+- **Seen:** 2 (self-review, 2026-11; pr-review, 2026-11)
