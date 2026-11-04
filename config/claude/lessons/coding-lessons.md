@@ -20,7 +20,7 @@ Entry format:
 ---
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative"; L-011 → CLAUDE.md "Authorization & Data Access"; L-018 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-014 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-027 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-028 → CLAUDE.md "Correctness & Resilience Checklist: Matching pipelines"; L-004 → CLAUDE.md "Correctness & Resilience Checklist: New states reach every consumer"; L-020 → CLAUDE.md "Correctness & Resilience Checklist: Async work outlives its UI"; L-049 → CLAUDE.md "Authorization & Data Access"; L-048 → CLAUDE.md "Correctness & Resilience Checklist: Outcomes from what was confirmed" -->
-<!-- Lessons start below. Next ID: L-058 -->
+<!-- Lessons start below. Next ID: L-059 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -340,4 +340,12 @@ Entry format:
 - **Root cause:** Built the list as "user input + defaults" without considering inputs that overlap the defaults.
 - **Rule:** When appending default keys (sort tiebreakers, default filters, default fields) to user-supplied ones, skip defaults that name a field the user already set, and test with a user value equal to each default.
 - **Check:** For each `[userValue, ...defaults]` composition in the diff, ask what happens when the user's value uses a default's key; confirm a test covers it.
+- **Seen:** 1 (pr-review, 2026-11)
+
+### L-058: A safety condition that depends on other configuration was recorded only as a comment
+- **Area:** authorization, testing
+- **Pattern:** A derived value (a count over child rows) bypassed the child table's row permissions. It was safe only because every role's child permission was at least as broad as its parent permission. That was checked by hand once and written down as a code comment, so narrowing a child permission later would have silently exposed counts of rows the role can't see.
+- **Root cause:** Treated a one-time manual check as a lasting guarantee, though the condition lives in configuration that other changes can edit.
+- **Rule:** When code is safe only while another file keeps some property (a permission filter, a config value, a schema constraint), encode that property as a test that reads the real configuration and fails when the property stops holding. Match strict shapes (see L-010), and confirm the test fails on a realistic violation, not on an edit that still satisfies the property.
+- **Check:** For each comment in the diff of the form "safe only while / as long as / revisit if", find the test that enforces it; if there is none, flag it.
 - **Seen:** 1 (pr-review, 2026-11)
