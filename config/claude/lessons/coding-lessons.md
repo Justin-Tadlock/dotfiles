@@ -20,7 +20,7 @@ Entry format:
 ---
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative"; L-011 → CLAUDE.md "Authorization & Data Access"; L-018 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-014 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-027 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-028 → CLAUDE.md "Correctness & Resilience Checklist: Matching pipelines"; L-004 → CLAUDE.md "Correctness & Resilience Checklist: New states reach every consumer"; L-020 → CLAUDE.md "Correctness & Resilience Checklist: Async work outlives its UI"; L-049 → CLAUDE.md "Authorization & Data Access"; L-048 → CLAUDE.md "Correctness & Resilience Checklist: Outcomes from what was confirmed" -->
-<!-- Lessons start below. Next ID: L-055 -->
+<!-- Lessons start below. Next ID: L-056 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -324,4 +324,12 @@ Entry format:
 - **Root cause:** Treated a clean apply as proof the change fit the target, without looking at the code the values are matched against, which was outside the diff.
 - **Rule:** When porting a value that is looked up by string (ids, keys, paths, event names), find what it is compared with on the target branch and confirm it still matches; if the two sides drifted, keep the target's value. Add a test that runs the real matching rule over the real definitions so a mismatch fails.
 - **Check:** For each cherry-picked change to a config map, registry or key-to-handler table, search the target branch for the consumer that matches those keys and compare both sides; look for a test that feeds the actual definitions through the lookup.
+- **Seen:** 1 (self-review, 2026-11)
+
+### L-055: A test re-derived a library's generated key with a local helper instead of asking the library
+- **Area:** testing, configuration, third-party libraries
+- **Pattern:** A config key had to equal an id that a table library derives from a nested accessor path. The test built the expected ids with a project helper that replaced only the first separator, while the library replaced every one. The key was written to match the helper, so the tests passed and the feature still did not appear in the app.
+- **Root cause:** Assumed the project helper mirrored the library's derivation because existing single-separator keys agreed with it, without reading the library's code or testing a multi-separator value.
+- **Rule:** When a value must equal something a library generates (column ids, route names, cache keys, event names), get the expected value from the library itself in the test (build a real instance and read its output), not from a re-implementation. Before relying on a helper that claims to match a library, read the library code and test an input where the two could differ.
+- **Check:** For each test in the diff that computes the expected ids or keys a library generates, confirm it gets them from the library rather than from a local helper or copied logic, and that some input has more than one nesting level or separator.
 - **Seen:** 1 (self-review, 2026-11)
