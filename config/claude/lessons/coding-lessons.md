@@ -20,7 +20,7 @@ Entry format:
 ---
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative"; L-011 → CLAUDE.md "Authorization & Data Access"; L-018 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-014 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-027 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-028 → CLAUDE.md "Correctness & Resilience Checklist: Matching pipelines"; L-004 → CLAUDE.md "Correctness & Resilience Checklist: New states reach every consumer"; L-020 → CLAUDE.md "Correctness & Resilience Checklist: Async work outlives its UI"; L-049 → CLAUDE.md "Authorization & Data Access"; L-048 → CLAUDE.md "Correctness & Resilience Checklist: Outcomes from what was confirmed" -->
-<!-- Lessons start below. Next ID: L-059 -->
+<!-- Lessons start below. Next ID: L-061 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -292,7 +292,7 @@ Entry format:
 - **Root cause:** Treated the entry point as glue and checked the gates by reading it, without noticing that the safety controls added in review lived only there.
 - **Rule:** Keep a script's entry point to argument parsing, file I/O and wiring. Put the orchestration in a function that takes its data access, storage, prompt and record sink as parameters, with a mode type that makes unsafe combinations unrepresentable (e.g. apply requires the reviewed set), and test each gate there. Confirm each test fails when its gate is removed.
 - **Check:** For each script or job entry point in the diff, list the conditions it checks and the order of its side effects; flag any that only that untested function enforces.
-- **Seen:** 1 (pr-review, 2026-11)
+- **Seen:** 2 (pr-review, 2026-11; self-review, 2026-11)
 
 ### L-051: Checked an allowlist object with `in`
 - **Area:** validation, JavaScript
@@ -349,3 +349,19 @@ Entry format:
 - **Rule:** When code is safe only while another file keeps some property (a permission filter, a config value, a schema constraint), encode that property as a test that reads the real configuration and fails when the property stops holding. Match strict shapes (see L-010), and confirm the test fails on a realistic violation, not on an edit that still satisfies the property.
 - **Check:** For each comment in the diff of the form "safe only while / as long as / revisit if", find the test that enforces it; if there is none, flag it.
 - **Seen:** 1 (pr-review, 2026-11)
+
+### L-059: Used an object's last-modified time as the time its content was written
+- **Area:** storage, data migration
+- **Pattern:** A migration decided which objects an old code version wrote by comparing their last-modified time with the date that version was replaced. An earlier bulk job had changed access settings on most objects, which reset that timestamp, so every object looked new and the migration refused all of them.
+- **Root cause:** Treated a storage-set timestamp as evidence of when the content was written, without listing past operations that update it (ACL changes, metadata rewrites, in-place copies).
+- **Rule:** Before deciding by an object's last-modified time, search history for bulk jobs that touched the objects, and check real objects' dates for clusters. Treat dates inside such a job's window as unknown, not as dates.
+- **Check:** For each comparison of an object's last-modified time in the diff, look for a dry run showing the real date distribution and for bulk object-rewrite scripts in history.
+- **Seen:** 1 (self-review, 2026-11)
+
+### L-060: Added an input to a reviewed apply step without binding it to the reviewed artifact
+- **Area:** scripts, data migration, safety gates
+- **Pattern:** An apply step took a reviewed dry-run file and checked it against some run inputs, but a newly added option that changed which items the apply would write was not compared with the value used for the dry run, so the operator could apply with a setting nobody reviewed.
+- **Root cause:** Added the option to the run without listing which checks bind the reviewed file to the apply, and documented "use the same value" instead of enforcing it.
+- **Rule:** When an apply is gated on a reviewed dry run, record every input that changes what the apply writes in the dry-run output, and refuse the apply unless each one matches. Test a mismatch for each input, and an older dry-run file that lacks the field.
+- **Check:** For each new option in a script with dry-run/apply modes, confirm it is written to the dry-run output and compared when the reviewed file is loaded.
+- **Seen:** 1 (self-review, 2026-11)
