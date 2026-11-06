@@ -20,7 +20,7 @@ Entry format:
 ---
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative"; L-011 → CLAUDE.md "Authorization & Data Access"; L-018 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-014 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-027 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-028 → CLAUDE.md "Correctness & Resilience Checklist: Matching pipelines"; L-004 → CLAUDE.md "Correctness & Resilience Checklist: New states reach every consumer"; L-020 → CLAUDE.md "Correctness & Resilience Checklist: Async work outlives its UI"; L-049 → CLAUDE.md "Authorization & Data Access"; L-048 → CLAUDE.md "Correctness & Resilience Checklist: Outcomes from what was confirmed" -->
-<!-- Lessons start below. Next ID: L-061 -->
+<!-- Lessons start below. Next ID: L-063 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -365,3 +365,19 @@ Entry format:
 - **Rule:** When an apply is gated on a reviewed dry run, record every input that changes what the apply writes in the dry-run output, and refuse the apply unless each one matches. Test a mismatch for each input, and an older dry-run file that lacks the field.
 - **Check:** For each new option in a script with dry-run/apply modes, confirm it is written to the dry-run output and compared when the reviewed file is loaded, and that a test feeds the output the dry run actually writes, after JSON serialization, into the reviewed-file loader.
 - **Seen:** 1 (self-review, 2026-11)
+
+### L-061: Logged caller-chosen object keys as if they were safe metadata
+- **Area:** logging, validation
+- **Pattern:** To avoid logging sensitive values from a request body, logged the body's key names instead. The keys are caller input too: a request could put arbitrary text (including someone else's personal data) or megabytes of characters into a key, and it went straight into the logs. Capping the number of keys didn't bound their length.
+- **Root cause:** Treated "names, not values" as inherently safe without asking who controls the names.
+- **Rule:** Log only allow-listed key names that are present, plus a count of the rest. Never log raw keys, header names, or other caller-chosen identifiers without an allow-list or a length bound.
+- **Check:** For each log call in the diff that includes `Object.keys(...)`, header names, or other request-derived identifiers, confirm the values are filtered through an allow-list; look for a test with a very long key and a key containing personal data.
+- **Seen:** 1 (pr-review, 2026-11)
+
+### L-062: Restored an environment variable by assigning a possibly-undefined value
+- **Area:** testing, Node.js
+- **Pattern:** A test saved an environment variable, overwrote it, and restored it in teardown with `process.env.X = saved`. When the variable was originally unset, the assignment stored the string `"undefined"`, which leaked into later test files because the runner shared one process without isolation.
+- **Root cause:** Assumed assigning `undefined` to `process.env` removes the key; Node coerces every assigned value to a string.
+- **Rule:** When restoring an environment variable, `delete process.env.X` if the saved value is `undefined`, otherwise assign it; or use the test runner's env stubbing with automatic restore (e.g. `vi.stubEnv` + `vi.unstubAllEnvs`).
+- **Check:** For each `process.env.X = <saved>` in test teardown in the diff, confirm the undefined case deletes the key or that the runner's env stub/restore is used.
+- **Seen:** 1 (pr-review, 2026-11)
