@@ -20,7 +20,7 @@ Entry format:
 ---
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative"; L-011 → CLAUDE.md "Authorization & Data Access"; L-018 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-014 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-027 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-028 → CLAUDE.md "Correctness & Resilience Checklist: Matching pipelines"; L-004 → CLAUDE.md "Correctness & Resilience Checklist: New states reach every consumer"; L-020 → CLAUDE.md "Correctness & Resilience Checklist: Async work outlives its UI"; L-049 → CLAUDE.md "Authorization & Data Access"; L-048 → CLAUDE.md "Correctness & Resilience Checklist: Outcomes from what was confirmed" -->
-<!-- Lessons start below. Next ID: L-063 -->
+<!-- Lessons start below. Next ID: L-065 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -272,11 +272,11 @@ Entry format:
 
 ### L-046: Module mocks leaked into other test files under a shared module registry
 - **Area:** testing
-- **Pattern:** The unit test config ran files without isolation. A new test mocked a shared server module, and a later file that mocked the same module got the first file's mock, so its tests failed depending on file order. Resetting the module cache after the file was not enough, because the mock registration stayed.
-- **Root cause:** Assumed each test file gets fresh modules, and then assumed clearing the module cache also removes registered mocks; verified only with the default file order.
-- **Rule:** Before mocking a shared module, check the runner's isolation setting. Without isolation, unregister each mock after the file (e.g. `vi.doUnmock(path)` for every mocked path, then `vi.resetModules()`), and run the suite with shuffled file order (e.g. `--sequence.shuffle.files` with a few seeds) before calling it done.
-- **Check:** For each new `vi.mock` in a test file in the diff, confirm whether the config sets `isolate: false`; if so, look for a matching unmock in `afterAll` and a shuffled-order run.
-- **Seen:** 1 (pr-review, 2026-10)
+- **Pattern:** The unit test config ran files without isolation. A new test mocked a shared server module, and a later file that mocked the same module got the first file's mock, so its tests failed depending on file order. Resetting the module cache after the file was not enough, because the mock registration stayed. Later, a file that did unmock and reset the cache in teardown made an unrelated later file intermittently load its real data layer instead of its own mock, depending on which files shared a worker.
+- **Root cause:** Assumed each test file gets fresh modules, and then assumed clearing the module cache also removes registered mocks; verified only with the default file order. Then treated the teardown clean-up as safe without running enough shuffled orders to see a worker-dependent failure.
+- **Rule:** Before mocking a shared module, check the runner's isolation setting. Without isolation, unregister each mock after the file (e.g. `vi.doUnmock(path)` for every mocked path, then `vi.resetModules()`), and run the suite with shuffled file order (e.g. `--sequence.shuffle.files` with a few seeds) before calling it done. Prefer moving the logic under test into a module with no import-time side effects (no env checks, no client construction), so the test needs no module mocks, env stubs or cache resets at all. Failures can depend on worker assignment, so repeat the shuffled run several times.
+- **Check:** For each new `vi.mock` in a test file in the diff, confirm whether the config sets `isolate: false`; if so, look for a matching unmock in `afterAll` and a shuffled-order run. Flag any `vi.resetModules()` in a teardown as a possible cause of order-dependent failures in other files.
+- **Seen:** 2 (pr-review, 2026-10; self-review, 2026-11)
 
 ### L-047: Mapped API errors on the client without checking what the proxy in between forwards
 - **Area:** error handling, API contracts, testing
@@ -296,11 +296,11 @@ Entry format:
 
 ### L-051: Checked an allowlist object with `in`
 - **Area:** validation, JavaScript
-- **Pattern:** Checked an input string against an object-literal allowlist with `in`, which also matches inherited properties (`constructor`, `__proto__`). Crafted input passed the check, and the lookup returned a function instead of a value.
+- **Pattern:** Checked an input string against an object-literal allowlist with `in`, which also matches inherited properties (`constructor`, `__proto__`). Crafted input passed the check, and the lookup returned a function instead of a value. Later, a test fixture looked up a per-role table with a bare index, so an unplaced role id such as `constructor` got an inherited function as its value and a denial test failed for the wrong reason.
 - **Root cause:** Treated the object literal as a set without considering its prototype chain.
-- **Rule:** Check untrusted keys against a `Set`, a `Map`, or an own-property test (`Object.hasOwn` / `hasOwnProperty.call`), never `in` or a bare index. Test with `constructor` and `__proto__`.
+- **Rule:** Check untrusted keys against a `Set`, a `Map`, or an own-property test (`Object.hasOwn` / `hasOwnProperty.call`), never `in` or a bare index. Test with `constructor` and `__proto__`. This applies to test fixtures and expectation tables too.
 - **Check:** For each `x in OBJ` or `OBJ[input]` in the diff where the input is untrusted, confirm it uses an own-property or Map/Set lookup.
-- **Seen:** 1 (pr-review, 2026-11)
+- **Seen:** 2 (pr-review, 2026-11; self-review, 2026-11)
 
 ### L-052: Relied on a shared helper to store a field without checking that it does
 - **Area:** audit/logging, API contracts
@@ -381,3 +381,19 @@ Entry format:
 - **Rule:** When restoring an environment variable, `delete process.env.X` if the saved value is `undefined`, otherwise assign it; or use the test runner's env stubbing with automatic restore (e.g. `vi.stubEnv` + `vi.unstubAllEnvs`).
 - **Check:** For each `process.env.X = <saved>` in test teardown in the diff, confirm the undefined case deletes the key or that the runner's env stub/restore is used.
 - **Seen:** 1 (pr-review, 2026-11)
+
+### L-063: Passed already-formatted SQL to a helper that formats its input again
+- **Area:** SQL, data access, injection
+- **Pattern:** Built a dynamic query by formatting values into its text, then passed that string to a database helper that runs the same printf-style formatter on every query it receives. A placeholder sequence inside a stored value (for example `%L` or `%s` in free text) would have been expanded again on the second pass.
+- **Root cause:** Assumed the helper formats only when it is given arguments, without reading it.
+- **Rule:** Before passing SQL to a query helper, read whether it formats its input. Build dynamic templates only from fixed identifiers (quoted once) and placeholders, and pass every value as an argument in a single formatting pass. Test with a value that contains the formatter's placeholder syntax.
+- **Check:** For each query call in the diff, confirm the template contains no substituted values (no nested format call or interpolated value in the string), and look for a test value such as `100%L %s`.
+- **Seen:** 1 (self-review, 2026-11)
+
+### L-064: Compensation skipped the item that failed partway through
+- **Area:** error handling, external APIs, consistency
+- **Pattern:** Applied a change to several remote records, each needing more than one call, and on failure reverted the records listed as done. A record was listed only after all its calls succeeded, so one whose first call succeeded and second call failed kept half the change.
+- **Root cause:** Treated a multi-call step as atomic when writing the rollback.
+- **Rule:** When a per-item step makes more than one remote call, mark the item as touched before its first call and make its revert safe to run on a partly applied item. Test a failure on a later call of the first item.
+- **Check:** For each compensation loop in the diff, find where an item is added to the done list relative to its calls, and look for a test that fails mid-item.
+- **Seen:** 1 (self-review, 2026-11)
