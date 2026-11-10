@@ -20,7 +20,7 @@ Entry format:
 ---
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative"; L-011 → CLAUDE.md "Authorization & Data Access"; L-018 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-014 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-027 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-028 → CLAUDE.md "Correctness & Resilience Checklist: Matching pipelines"; L-004 → CLAUDE.md "Correctness & Resilience Checklist: New states reach every consumer"; L-020 → CLAUDE.md "Correctness & Resilience Checklist: Async work outlives its UI"; L-049 → CLAUDE.md "Authorization & Data Access"; L-048 → CLAUDE.md "Correctness & Resilience Checklist: Outcomes from what was confirmed" -->
-<!-- Lessons start below. Next ID: L-065 -->
+<!-- Lessons start below. Next ID: L-068 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -64,11 +64,11 @@ Entry format:
 
 ### L-016: Compared counts from two layers that use different equality rules
 - **Area:** authorization, data access, validation
-- **Pattern:** Deduplicated input ids in application code with exact string equality, then required the database to return one row per id. The database compared the column type with its own equality rule (case-insensitive for that type), so two spellings of one id produced one row, the counts disagreed, and a valid request was denied.
+- **Pattern:** Deduplicated input ids in application code with exact string equality, then required the database to return one row per id. The database compared the column type with its own equality rule (case-insensitive for that type), so two spellings of one id produced one row, the counts disagreed, and a valid request was denied. Later, an application-side normalizer (full-Unicode trim and lowercase) was documented as matching a database index built on a narrower trim and a collation-dependent lowercase, so pre-checks and the index could disagree on legacy or non-ASCII values.
 - **Root cause:** Assumed the application's notion of "same value" matched the database's, without checking how the column type compares values.
-- **Rule:** Before comparing an input count with a result count (or matching input values against returned values), put the input in the same canonical form the storage layer compares by (case, whitespace, numeric vs. string), then deduplicate. Test with two spellings of the same value. A stored reference may also spell the same value differently depending on its writer (percent-encoding, hex case, `+` for a space); list how each writer encodes it, and when a match blocks an action, match every spelling.
+- **Rule:** Before comparing an input count with a result count (or matching input values against returned values), put the input in the same canonical form the storage layer compares by (case, whitespace, numeric vs. string), then deduplicate. Test with two spellings of the same value. A stored reference may also spell the same value differently depending on its writer (percent-encoding, hex case, `+` for a space); list how each writer encodes it, and when a match blocks an action, match every spelling. Prefer applying the storage layer's own normalization to both sides inside the query over reimplementing it in application code, and restrict accepted input to the range where both agree.
 - **Check:** For each `new Set(...)` or dedup in the diff whose size is compared with a query's row count, confirm the elements are normalized to the column type's equality first, and that a test sends differently cased or formatted duplicates. For each match on a stored URL or path, list how its writers encode it and confirm a test covers each spelling.
-- **Seen:** 2 (pr-review, 2026-10; pr-review, 2026-11)
+- **Seen:** 3 (pr-review, 2026-10; pr-review, 2026-11; pr-review, 2026-11)
 
 ### L-017: A batched GraphQL access check fails entirely for a role that lacks one root field
 - **Area:** authorization, GraphQL
@@ -88,11 +88,11 @@ Entry format:
 
 ### L-021: Changed a server boundary's contract without auditing clients that bypass the shared helper
 - **Area:** validation, API contracts, error handling, deployment
-- **Pattern:** Added stricter input bounds and value normalization to an endpoint and improved error formatting in the shared client helper, but another client called the endpoint directly: it pre-transformed a field past the new bound, persisted the raw (un-normalized) value that a stricter downstream reader rejected, and kept showing the transport error instead of the server's message. Separately, a new per-request cap was paired with a client change to batch requests, but the old client, still live until the client deploy, sent everything at once and swallowed the error, so the action looked successful while it did nothing.
+- **Pattern:** Added stricter input bounds and value normalization to an endpoint and improved error formatting in the shared client helper, but another client called the endpoint directly: it pre-transformed a field past the new bound, persisted the raw (un-normalized) value that a stricter downstream reader rejected, and kept showing the transport error instead of the server's message. Separately, a new per-request cap was paired with a client change to batch requests, but the old client, still live until the client deploy, sent everything at once and swallowed the error, so the action looked successful while it did nothing. Later, a stricter body allow-list on an existing endpoint rejected a field that a not-yet-released client branch already sends, and a permission lockdown made the old client's multi-step flows half-succeed (an external account deleted, the local deactivation rejected).
 - **Root cause:** Audited callers of the helper, not every caller of the endpoint; and checked what each client will send after its update, not what the current client does with the new rejection during the rollout.
 - **Rule:** When changing an endpoint's validation, normalization or error shape, search for every request to that endpoint (not just helper usages). For each, check the transformations applied before sending against the new bounds, persist the server-normalized value rather than the raw input, and route errors through the shared formatter. When the server deploys before its clients, state what each current client does when the new check rejects it (especially callers that ignore or only log errors) and put that window in the deploy plan.
-- **Check:** For each tightened bound or normalization in the diff, search for the endpoint path across the client code; for each hit, compare what it sends and stores with the new contract, and trace how the deployed version handles a rejection (awaited? surfaced to the user?).
-- **Seen:** 2 (pr-review, 2026-10; pr-review, 2026-10)
+- **Check:** For each tightened bound or normalization in the diff, search for the endpoint path across the client code; for each hit, compare what it sends and stores with the new contract, and trace how the deployed version handles a rejection (awaited? surfaced to the user?). Also search unreleased client branches for the endpoint, and for each client flow that writes through a permission being removed, list which of its steps still succeed.
+- **Seen:** 3 (pr-review, 2026-10; pr-review, 2026-10; pr-review, 2026-11)
 
 ### L-022: A row cap was applied before the filters that decide eligibility
 - **Area:** data access, authorization
@@ -120,11 +120,11 @@ Entry format:
 
 ### L-025: Matched an incoming name against a cached copy instead of the live value
 - **Area:** data access, caching, identity
-- **Pattern:** Resolved incoming names to records by a locally cached copy of an external system's name, while another flow updated the live local record's name first, so lookups missed until the next sync and created duplicates.
+- **Pattern:** Resolved incoming names to records by a locally cached copy of an external system's name, while another flow updated the live local record's name first, so lookups missed until the next sync and created duplicates. Later, an email change updated the user record but not the copies of the address stored in notification lists, so notifications kept going to the old address.
 - **Root cause:** Listed the writers of the cache, not every writer of the value the cache mirrors.
 - **Rule:** When resolving by a mirrored value, list every writer of both the mirror and the live value; match against both (treating conflicts as ambiguous) or update them together.
 - **Check:** For each lookup on a synced/cached column in the diff, search for writes to the corresponding live column; flag any path that updates one without the other.
-- **Seen:** 1 (pr-review, 2026-10)
+- **Seen:** 2 (pr-review, 2026-10; pr-review, 2026-11)
 
 ### L-026: Per-file random counters for fixture IDs in a shared test database
 - **Area:** testing, integration
@@ -144,11 +144,11 @@ Entry format:
 
 ### L-030: Treated knowledge of an object key as a barrier without checking how keys were generated
 - **Area:** authorization, storage
-- **Pattern:** An access rule granted a download when any row the caller could see referenced the object's URL. The caller could write that column on their own row, so the rule reduced to "knows the key", and older keys were the client-supplied file name, so they were guessable.
-- **Root cause:** Checked forgeability for one table the rule read but not the others, and assumed keys were unguessable from the current generator without checking every earlier generator.
-- **Rule:** For each row an access rule relies on, confirm the caller can't write the referencing column on any row they can see. Bind the key to the specific record it belongs to and check that record only. Never treat a key as secret unless every generator, current and past, produced unguessable keys.
+- **Pattern:** An access rule granted a download when any row the caller could see referenced the object's URL. The caller could write that column on their own row, so the rule reduced to "knows the key", and older keys were the client-supplied file name, so they were guessable. Later, a scope rule required every membership of the target to be one of the caller's, to defeat a caller adding the target to its own group; a target with no other memberships still passed after the caller added the one forged row.
+- **Root cause:** Checked forgeability for one table the rule read but not the others, and assumed keys were unguessable from the current generator without checking every earlier generator. Treated a stricter condition over forgeable rows as fixing forgeability, without testing the case where the forged row is the only row.
+- **Rule:** For each row an access rule relies on, confirm the caller can't write the referencing column on any row they can see. Bind the key to the specific record it belongs to and check that record only. Never treat a key as secret unless every generator, current and past, produced unguessable keys. A rule over rows the caller can create ("all of the target's links are mine") is still forgeable when the caller can create the only link; remove the write permission instead and test the zero-row case.
 - **Check:** For each "a visible row references this URL/key" grant in the diff, list which roles can write that column on rows they can see, and how every historical key format was produced.
-- **Seen:** 1 (pr-review, 2026-10)
+- **Seen:** 2 (pr-review, 2026-10; pr-review, 2026-11)
 
 ### L-031: Designed a data flow between "related" records without checking the uniqueness that defines them
 - **Area:** data modeling, persistence
@@ -184,11 +184,11 @@ Entry format:
 
 ### L-035: Set a lock order without auditing every writer's locks
 - **Area:** concurrency, database
-- **Pattern:** Reordered row locks in request handlers to match one documented order, but a background job took explicit table locks on the same tables in the opposite order, so a request holding a row lock and the job could deadlock. Later, a bulk update written next to them took row locks implicitly, in whatever order the query plan visited the rows.
+- **Pattern:** Reordered row locks in request handlers to match one documented order, but a background job took explicit table locks on the same tables in the opposite order, so a request holding a row lock and the job could deadlock. Later, a bulk update written next to them took row locks implicitly, in whatever order the query plan visited the rows. Later, a new multi-row `UPDATE ... FROM` rewriting a JSON column across many rows took row locks in plan order again, so two concurrent requests on overlapping rows could deadlock.
 - **Root cause:** Listed the writers changed in the diff, not every writer of those tables, and did not count table-level locks in scheduled jobs as part of the order.
 - **Rule:** Before stating or changing a lock order, find every writer of the tables involved (request handlers, jobs, imports, maintenance scripts), including explicit table locks, and make them all follow the same order. Test each pairing that can overlap with a deterministic lock-wait test (hold one lock, wait until the other session blocks, then take the next lock). A multi-row UPDATE/DELETE on rows that other writers lock in a set order must first select the ids with `ORDER BY id FOR UPDATE`, then update by id.
 - **Check:** For each new `FOR UPDATE`, `LOCK TABLE` or multi-table write sequence in the diff, search for other code writing those tables and compare the order in which each acquires them, and each multi-row UPDATE/DELETE on those tables.
-- **Seen:** 2 (pr-review, 2026-10; pr-review, 2026-10)
+- **Seen:** 3 (pr-review, 2026-10; pr-review, 2026-10; pr-review, 2026-11)
 
 ### L-036: Relied on a service's transaction method without checking that it pins one connection
 - **Area:** database, concurrency
@@ -198,13 +198,13 @@ Entry format:
 - **Check:** For each transaction in the diff, find where its connection comes from. Flag it if the object it runs on may be a pool rather than a checked-out client.
 - **Seen:** 1 (pr-review, 2026-10)
 
-### L-037: Aggregated access check let NULL comparisons pass
+### L-037: NULL comparisons silently passed or dropped rows
 - **Area:** authorization, SQL
-- **Pattern:** An access check required `bool_and(a.x = b.x)` across all requested rows. A NULL column made the comparison NULL, which `bool_and` skips, so a row with a missing link passed whenever another row was consistent.
+- **Pattern:** An access check required `bool_and(a.x = b.x)` across all requested rows. A NULL column made the comparison NULL, which `bool_and` skips, so a row with a missing link passed whenever another row was consistent. Later, a filter rebuilding a JSON array kept elements `WHERE value <> x`; JSON null elements compared as NULL and were dropped, and the rebuilt array had no defined order.
 - **Root cause:** Treated the comparison as true or false, without considering that SQL aggregates ignore NULL inputs.
-- **Rule:** In aggregated access checks, make every condition count NULL as a denial (e.g. `COALESCE(cond, false)`). Test a batch that mixes a valid row with one whose link is NULL.
-- **Check:** For each `bool_and` / `every` / `count(col)` / `min` in an authorization query, ask what a NULL input does, and confirm a test covers it.
-- **Seen:** 1 (pr-review, 2026-10)
+- **Rule:** In aggregated access checks, make every condition count NULL as a denial (e.g. `COALESCE(cond, false)`). Test a batch that mixes a valid row with one whose link is NULL. Use `IS DISTINCT FROM` / `IS NOT DISTINCT FROM` when a filter must keep NULL-valued items, and `WITH ORDINALITY ... ORDER BY` when rebuilding arrays.
+- **Check:** For each `bool_and` / `every` / `count(col)` / `min` in an authorization query, ask what a NULL input does, and confirm a test covers it. For each `<>`/`=` filter over values that can be NULL (including JSON elements extracted with `#>>`), ask whether NULL items should be kept.
+- **Seen:** 2 (pr-review, 2026-10; pr-review, 2026-11)
 
 ### L-038: After authorizing a record, used its references without checking they belong to it
 - **Area:** authorization, data access
@@ -232,11 +232,11 @@ Entry format:
 
 ### L-041: One variant of an action skipped a precondition or side effect another variant performs
 - **Area:** validation, state transitions, data integrity
-- **Pattern:** The single-item path of an action refused items whose parent was already finalized, but the bulk path only filtered on the item's own status, so a bulk request could overwrite a parent's finalized state. Separately, a bulk "close" that replaced a client mutation copied that mutation's behavior (change one status column), while the server's own single-item reject also updated the other status columns and cleared a related row's pointer to the item; the leftover pointer blocked new submissions later.
+- **Pattern:** The single-item path of an action refused items whose parent was already finalized, but the bulk path only filtered on the item's own status, so a bulk request could overwrite a parent's finalized state. Separately, a bulk "close" that replaced a client mutation copied that mutation's behavior (change one status column), while the server's own single-item reject also updated the other status columns and cleared a related row's pointer to the item; the leftover pointer blocked new submissions later. Later, a pending self-service change stayed valid after a manager changed the same field or deactivated the user, so confirming the stale link could undo the manager's change.
 - **Root cause:** Wrote the new variant from the item's own fields or from the code it replaced, without listing every check and every related write the existing variant of the same transition performs.
-- **Rule:** When an action has several forms (single and bulk, user-facing and administrative, an API path replacing a client write), derive them from one function that applies the same eligibility checks and the same related writes (status columns, pointers, counters), or list both and carry each one over. Test each refusal and each related write through every form.
+- **Rule:** When an action has several forms (single and bulk, user-facing and administrative, an API path replacing a client write), derive them from one function that applies the same eligibility checks and the same related writes (status columns, pointers, counters), or list both and carry each one over. Test each refusal and each related write through every form. When a new path writes a field that has pending or queued changes elsewhere, cancel or re-validate those in the same transaction.
 - **Check:** For each new or changed variant of a state transition in the diff, find the other code paths that perform the same transition; list their refusal conditions and the columns and related rows they write, and confirm the variant applies each one, with a test per item.
-- **Seen:** 2 (self-review, 2026-10; user-feedback, 2026-10)
+- **Seen:** 3 (self-review, 2026-10; user-feedback, 2026-10; pr-review, 2026-11)
 
 ### L-042: Read the same rows twice in a transaction assuming both reads see the same data
 - **Area:** concurrency, database
@@ -390,10 +390,34 @@ Entry format:
 - **Check:** For each query call in the diff, confirm the template contains no substituted values (no nested format call or interpolated value in the string), and look for a test value such as `100%L %s`.
 - **Seen:** 1 (self-review, 2026-11)
 
-### L-064: Compensation skipped the item that failed partway through
+### L-064: Compensation for a failed external step was incomplete or unsafe
 - **Area:** error handling, external APIs, consistency
-- **Pattern:** Applied a change to several remote records, each needing more than one call, and on failure reverted the records listed as done. A record was listed only after all its calls succeeded, so one whose first call succeeded and second call failed kept half the change.
-- **Root cause:** Treated a multi-call step as atomic when writing the rollback.
-- **Rule:** When a per-item step makes more than one remote call, mark the item as touched before its first call and make its revert safe to run on a partly applied item. Test a failure on a later call of the first item.
-- **Check:** For each compensation loop in the diff, find where an item is added to the done list relative to its calls, and look for a test that fails mid-item.
-- **Seen:** 1 (self-review, 2026-11)
+- **Pattern:** Applied a change to several remote records, each needing more than one call, and on failure reverted the records listed as done. A record was listed only after all its calls succeeded, so one whose first call succeeded and second call failed kept half the change. Later, a revert restored only the field it had changed (not the verification flag the change also reset), and a revert to the pre-change snapshot could overwrite a newer change committed by a concurrent request between the local write and the external call; a compare-and-set undo that matched nothing was not logged.
+- **Root cause:** Treated a multi-call step as atomic when writing the rollback. Assumed no other writer could act between the local commit and the external call, and listed only the fields named in the change.
+- **Rule:** When a per-item step makes more than one remote call, mark the item as touched before its first call and make its revert safe to run on a partly applied item. Test a failure on a later call of the first item. Serialize changes per record across the local write and the external calls (a lease row taken in the writing transaction, released after), restore every field the external change touched to the value the remote record actually had, and log a compare-and-set undo that matches nothing.
+- **Check:** For each compensation loop in the diff, find where an item is added to the done list relative to its calls, and look for a test that fails mid-item. For each revert, list every field the forward call changes (including ones the remote system resets implicitly) and whether a concurrent request could have written in between.
+- **Seen:** 2 (self-review, 2026-11; pr-review, 2026-11)
+
+### L-065: Added a writer that stores an unverified value in a field consumers treat as verified
+- **Area:** authorization, identity, data integrity
+- **Pattern:** A field (an account's email) was trusted downstream as belonging to the user, because the only self-service path verified it first. A new administrative path set it directly, so a downstream token signer started asserting an address nobody had proven to own.
+- **Root cause:** Checked who may call the new writer, not what every consumer assumes about values in that field.
+- **Rule:** When adding a writer to a field, list its consumers and the guarantees they rely on (verified, normalized, owned). If the new writer can't provide one, store that state explicitly (e.g. a verified flag) and make each consumer check it, failing closed.
+- **Check:** For each new write to an identity or contact field in the diff, find every reader of that field that signs, sends to, or authorizes with it, and confirm the new value meets the reader's assumption or is marked so the reader refuses it.
+- **Seen:** 1 (pr-review, 2026-11)
+
+### L-066: Treated an uncertain result from an external system as definite
+- **Area:** external APIs, consistency, error handling
+- **Pattern:** A create call to an identity provider timed out and the local record was deleted as if nothing had been created, though the provider may have created the account, leaving it pointing at nothing. Separately, the provider's search index (which lags behind writes) returned no accounts right after one was created, and the caller treated that as "no accounts".
+- **Root cause:** Mapped every failure to "not done" and every empty result to "none", without asking which answers the provider guarantees.
+- **Rule:** Split external failures into definite refusals (4xx) and ambiguous ones (timeouts, network errors, 5xx). On ambiguity, keep a recoverable local state (e.g. disabled, retryable) instead of deleting. Don't rely on an eventually consistent search to find records just written; cross-check with a consistent lookup.
+- **Check:** For each external create/update in the diff, find the failure branch and ask what happens if the call actually succeeded; for each search used to find records the same flow may have just written, confirm a consistent lookup backs it.
+- **Seen:** 1 (pr-review, 2026-11)
+
+### L-067: An endpoint revealed existence before its rate limit applied
+- **Area:** security, enumeration
+- **Pattern:** A self-service endpoint answered "address in use" immediately and checked its per-user throttle only on the success path, so any signed-in user could test unlimited addresses for existence.
+- **Root cause:** Placed the throttle where the expensive side effect (sending email) happens, not before the first branch that differs by existence.
+- **Rule:** Apply rate limits before any lookup whose outcome changes the response, and answer the same for existing and non-existing targets where existence is sensitive (move the difference into an out-of-band notice).
+- **Check:** For each endpoint in the diff that looks up a user-supplied identifier, compare the responses for "exists" and "doesn't exist" and confirm the throttle runs before that lookup.
+- **Seen:** 1 (pr-review, 2026-11)
