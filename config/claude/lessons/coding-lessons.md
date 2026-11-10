@@ -21,7 +21,7 @@ Entry format:
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative"; L-011 → CLAUDE.md "Authorization & Data Access"; L-018 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-014 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-027 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-028 → CLAUDE.md "Correctness & Resilience Checklist: Matching pipelines"; L-004 → CLAUDE.md "Correctness & Resilience Checklist: New states reach every consumer"; L-020 → CLAUDE.md "Correctness & Resilience Checklist: Async work outlives its UI"; L-049 → CLAUDE.md "Authorization & Data Access"; L-048 → CLAUDE.md "Correctness & Resilience Checklist: Outcomes from what was confirmed"; L-016 → CLAUDE.md "Correctness & Resilience Checklist: Same equality on both sides"; L-021 → CLAUDE.md "Correctness & Resilience Checklist: Contract changes reach every client"; L-035 → CLAUDE.md "Correctness & Resilience Checklist: Lock order"; L-041 → CLAUDE.md "Correctness & Resilience Checklist: Every variant of an action"; L-046 → CLAUDE.md "Correctness & Resilience Checklist: Test isolation"; L-064 → CLAUDE.md "Correctness & Resilience Checklist: Changes across two systems"; L-068 → CLAUDE.md "Authorization & Data Access"; L-010 → CLAUDE.md "Correctness & Resilience Checklist: Guarantees held by configuration"; L-050 → CLAUDE.md "Correctness & Resilience Checklist: Operator scripts" -->
 <!-- Merged: L-058 → L-010 (promoted); L-042 → L-036; L-056 → L-053; L-060 → L-050 (promoted); L-066 → L-023; L-034 → CLAUDE.md "Correctness & Resilience Checklist: Testability" -->
-<!-- Lessons start below. Next ID: L-070 -->
+<!-- Lessons start below. Next ID: L-071 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -317,4 +317,12 @@ Entry format:
 - **Root cause:** Treated "not yet deployed to production" as "not yet applied anywhere".
 - **Rule:** Once a migration is committed, put further schema changes in a new migration, unless you can confirm no database has applied it.
 - **Check:** For each changed (not added) migration file in the diff, check whether the earlier version was committed; if so, flag it.
+- **Seen:** 1 (pr-review, 2026-11)
+
+### L-070: Stated a timing bound in a comment instead of deriving it from the limits
+- **Area:** concurrency, external APIs
+- **Pattern:** A lease that had to outlast the external calls made between renewals was set to a fixed duration, with a comment claiming it covered the worst case. Computed from the client's per-attempt timeout, retry count and maximum retry wait, the slowest sequence of calls between two renewals took longer than the lease, and some paths never renewed at all.
+- **Root cause:** Wrote the bound from an estimate of typical call counts, without multiplying out the configured limits or checking where renewals actually ran.
+- **Rule:** When a duration must exceed the worst case of bounded operations (leases, locks, job timeouts), compute it in code from the same constants that bound those operations, renew before every external call rather than per batch, and add a test asserting the inequality so raising a limit fails it.
+- **Check:** For each lease/lock TTL or timeout in the diff, find the external calls made between renewals, multiply out attempts × timeout + retries × max wait, and compare; flag literal TTLs with comments claiming they cover the worst case.
 - **Seen:** 1 (pr-review, 2026-11)
