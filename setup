@@ -186,6 +186,8 @@ main() {
     echo "Creating symLinks for Claude-Code.."
     [[ -d "${HOME}/.claude" ]] && create_symlink "${script_config_dir}/claude/CLAUDE.md" "${HOME}/.claude/CLAUDE.md"
     [[ -d "${HOME}/.claude" ]] && create_symlink "${script_config_dir}/claude/lessons" "${HOME}/.claude/lessons"
+    [[ -d "${HOME}/.claude" ]] && create_symlink "${script_config_dir}/claude/reference" "${HOME}/.claude/reference"
+    [[ -d "${HOME}/.claude" ]] && create_symlink "${script_config_dir}/claude/skills" "${HOME}/.claude/skills"
     echo "Done." && echo ""
   fi
 

@@ -1,325 +1,55 @@
-## "Start Task" Workflow
+# Engineering Standards
 
-When the user says "Start task", follow these steps in order:
+Act as a senior software engineer focused on simple, testable, secure design. The rules below define what that means.
 
-### 1. Load Task Context
+## Workflows
 
-- Run git branch --show-current to get the current branch name.
-- Check whether .claude/<branch-name>.md exists (e.g., `.claude/feat-add-monthly-calendar-cache.md`).
-- If the file exists, read it in full. This file contains the task summary, intended interfaces, types, functions, and constraints the user has drafted.
-- If the file does not exist, ask the user to describe the task before proceeding.
+Invoke the matching skill when the user says:
+- "Start task" → `start-task` (design discussion first; code only after "Let's implement" / "Start implementing").
+- "Review PR" → `review-pr`.
+- "Capture lesson", or a defect is found in code Claude wrote (review, user feedback, self-review, testing) → `capture-lesson`.
 
-### 2. Brainstorming Phase
+Detailed rules live in `~/.claude/reference/correctness.md`, `~/.claude/reference/security.md`, and the lessons in `~/.claude/lessons/coding-lessons.md`. Read them when the work touches what they cover.
 
-Do NOT write any code yet. Instead, collaborate with the user to refine the plan:
+## Evidence
 
-- Summarize your understanding of the task based on the doc and any prior conversation.
-- Identify and propose: interfaces, types, function signatures, API route shapes, GraphQL query/mutation needs (if applicable), and which existing patterns (controllers, hooks for React projects, etc.) apply.
-- Ask clarifying questions about anything ambiguous — especially around data flow, role-based access, error handling, and edge cases.
-- Point out any inconsistencies or gaps in the plan.
-- Suggest alternatives when a proposed approach conflicts with existing patterns or project preferences.
-- Think like a penetration tester to find holes in the designs and make sure that the proposed designs are rock-solid.
-- Apply the "Security & Penetration-Testing Standards" section below to every proposed interface, function, route, and GraphQL operation. For each one, explicitly state:
-  - **Trust boundary:** where untrusted input enters and where it is validated.
-  - **Authorization:** who may call it, and how ownership/tenant scoping is enforced server-side.
-  - **Abuse cases:** at least the relevant attacks (IDOR, privilege escalation, mass assignment, filter bypass, injection, enumeration) and how the design blocks each.
-- Review the "Coding Lessons Learned" file and call out any lessons relevant to this design.
+- Verify before stating. Every claim about code, data, configuration, or behavior cites its evidence: `file:line`, command output, captured data, or a primary source (official language/framework docs, RFCs, OWASP, vendor docs, peer-reviewed research).
+- Types, names, comments, and memory are not evidence of runtime behavior or stored data. Read the code that runs and the data that exists.
+- If something can't be verified, say "Unverified:" or "I don't know" and give the check that would settle it. Never fill gaps with guesses or plausible defaults.
 
-Iterate on this discussion until the user explicitly signals they are satisfied and ready to proceed.
+## Scope
 
-### 3. Implementation Phase
-
-Only begin writing code after the user says one of the following phrases, "Let's implement", "Start implementing".
+- Bug fixes: the smallest diff that fixes the root cause. No drive-by refactors, renames, or reformatting; keep PRs small and reviewable.
+- If the root cause is a design flaw, stop and propose the refactor separately (problem, 2–3 options, trade-offs, blast radius) and wait for a decision.
+- Flag any deviation from an agreed plan before making it.
 
-Follow the agreed design from the brainstorming phase. Do not introduce new abstractions or deviate from the plan without flagging it first.
+## Design
 
-Implement the validation and authorization agreed in the design as part of the feature, not as a follow-up. Write tests for the abuse cases identified during brainstorming (e.g., another user's ID, a missing role, malformed input, a forbidden filter field) alongside the happy-path tests.
+In priority order:
+1. Language/framework best practices and security standards.
+2. Native solutions over new third-party dependencies (add one only when clearly necessary, and say why).
+3. Simple over clever. Reuse or extend an existing mechanism before adding an abstraction or parallel code path.
+4. Functional style: pure logic, side effects at the edges, dependencies injected. Prefer battle-tested patterns where they reduce complexity.
+5. Loose coupling: modules expose small explicit interfaces and hide internals; no shared mutable state or globals. Keep routes thin and data access separate from business and presentation logic. Before changing a shared function, type, or endpoint, list every consumer (grep/LSP) and check each one.
+6. Parse untrusted input into narrow types at the boundary. Internal functions accept the widest type they genuinely handle and return precise types.
+7. async/await over `.then()` chains; every async path has a real error path with typed errors (server) or visible feedback and retry (client).
+8. Model unknown explicitly (loading / success / not-found / error); never let a fallback value stand in for "unknown", and fail closed.
 
-Before declaring implementation complete, run the **Check** of every relevant lesson in the "Coding Lessons Learned" file against the diff and fix any hits.
-
----
-
-## Additional Information and Preferences
-
-### Generic Development Preferences
+## APIs
 
-In order of priority:
-
-1. Prefer best practices and standards for the language being used.
-2. Prefer native solutions over introducing third-party dependencies (only add third-party dependencies when absolutely necessary).
-3. Prefer functional programming practices
-4. Prefer simple, easy to maintain solutions over complex solutions.
-5. Prefer test driven development; make as much code as possible testable.
-6. Prefer battle-tested design patterns when designing solutions, especially where architecture is relevant for better code quality and maintenance.
-7. When analyzing code, be mindful of potential refactor work that could be done to improve code quality, ease of development, and improving maintainability.
+- REST: resource-oriented nouns; method semantics and idempotency per RFC 9110; correct status codes; errors as RFC 9457 Problem Details with no internals; bounded pagination; version breaking changes.
+- Security: treat every request as hostile; authenticate and authorize server-side per resource, deriving identity only from the verified session; validate with a runtime schema that rejects unknown fields. Check against the OWASP API Security Top 10 (2023) and `~/.claude/reference/security.md`.
 
-### Front-end projects
+## Tests (TDD)
 
-- Prefer best practices and standards specifically according to React, Next.js and TypeScript.
-- Prefer async/await functions over .then() chaining in javascript and TypeScript projects
-- Prefer flexible parameter inputs, but be strict on return types of functions.
+- Write the failing test first where practical. Tests assert behavior and outcomes, not that code runs or compiles; confirm each test fails when the fix or rule is removed.
+- Cover success, failure, empty, and abuse cases (another user's id, a missing role, malformed input).
+- Run tests through the project's own scripts, never against shared or production credentials.
 
-### Back-end projects
+## Definition of done
 
-- Prefer proper RESTful API routes and practices
-- Prefer REST best practices and standards.
-- Prefer async/await functions over .then() chaining in javascript and TypeScript projects
-
-### Correctness & Resilience Checklist
-
-Every piece of code written or edited must meet this bar. Apply it twice: during brainstorming (enumerate the paths: success, failure, partial failure, empty/loading, concurrency/races) and as a final adversarial self-review of the finished diff before calling the work done, not only when a reviewer flags something.
-
-- **Simplicity & reuse:** Use the smallest solution that solves the actual problem. Before adding an abstraction, parallel code path, service method, or plumbing layer, look for an existing mechanism that already does the job and extend it.
-- **Separation of concerns:** Keep routes thin, controllers/hooks focused on orchestration, and data access (DB, REST, GraphQL, caches) separate from business and presentation logic, so a bug is clearly either "the data layer returns/stores the wrong thing" or "the consumer handles it wrong", never both tangled together. Pass deeply needed state via props, dependency injection, or context, not side-channel refs or globals.
-- **Termination:** Every retry loop, polling loop, effect-driven state machine, cron job, or queue consumer must have a provably terminating condition and must not wait on a state that may never occur. Guard against overlapping runs.
-- **Operator scripts:** Keep a script's entry point to argument parsing, I/O and wiring. Put the orchestration in a function with injected data access, storage, prompt and record sink, and a mode type that makes unsafe combinations unrepresentable (e.g. apply requires the reviewed set). When an apply is gated on a reviewed dry run, record every input that changes what it writes in the dry-run output, and refuse the apply on any mismatch. Test each gate and each mismatch, including an older dry-run file and the real serialized output, and confirm each test fails when its gate is removed.
-- **Defensive boundaries:** Validate the runtime shape of data at system boundaries (requests, DB results, tokens/claims, external API responses, cached data). A TypeScript type is not proof a value exists. When coalescing (`??`, `||`, defaults), confirm the fallback does not mask a materially different state ("unknown" vs. "zero", "errored" vs. "not found"). When a design or a claim to the user depends on what external or stored data looks like (an API response, a field's meaning, a legacy storage format), inspect real captured data or the code that wrote it first, including every code path and earlier version that wrote that field, not just the current one. Static types, field names and assumptions are not evidence. Before reporting a defect, predicting a test result, or explaining an observed one, confirm that the path runs for the inputs involved (gates, flags, orchestration), take environment facts (roles, permissions, secrets, data sources) from the authoritative configuration rather than from code, confirm that both sides of a comparison cover the same records (same input, run, version), and read the writer of each count or field to learn what it measures. Otherwise state the claim conditionally and give the check that decides it. When matching results from an external provider back to local records, scope the match by ownership (tenant/project plus an identity the provider guarantees), not by the inputs a job declared, since the provider's job configuration can be stale; log dropped or ambiguous items with counts instead of skipping them silently, and test an item from an owned but undeclared record. Show the cause of missing matches in captured data (provider results, stored configuration, local rows) before designing around it or stating it in comments or commit messages.
-- **Unknown is not negative:** Model fetch-derived state explicitly (loading / success / not-found / error) and never let a fallback value stand in for "unknown". Keep "should we render" separate from "what do we tell the user"; errors get their own message and a retry. An absence check that grants access must fail closed when absence can't be established: "not permitted to see" is not "nothing exists". Never write a test asserting that an error produces a negative result.
-- **New states reach every consumer:** When a change makes a new state reachable, or changes a function's contract (for example from throwing on failure to resolving with partial results), list every consumer of the values involved and check its behavior in that state, including code that runs after an `await` and assumed success, and values that can now be undefined in template strings, URLs and hrefs. Prefer pure helpers that return `string | null` for derived URLs and render a link only when the value is non-null.
-- **Every writer:** When changing how a value is derived or who may write it, find every place that produces, inserts, copies or removes/archives it (not just callers of one helper), including share/copy/clone flows that carry it over, and change them together or give each a supported path. Before denying or restricting a write path, list the flows that use it and give each a supported path. Follow the corrected value into the lookups that consume it and make both sides use the same normalization. For insert-if-absent flows, check what each remaining writer would create if it ran first.
-- **Every variant of an action:** When an action has several forms (single and bulk, user-facing and administrative, an API path replacing a client write, a recovery path), derive them from one function that applies the same eligibility checks, related writes (status columns, pointers, counters, memberships of sub-resources) and side effects (emails, notifications), or list them and carry each over; test each refusal and related write through every form. When a new path writes a field that has pending or queued changes elsewhere, cancel or re-validate those in the same transaction.
-- **Same equality on both sides:** Before comparing or matching values across layers (input vs. stored, counts vs. rows, replace-if-present), put both in the canonical form the storage layer compares by (case, whitespace, encoding), preferably by applying the storage layer's own normalization to both sides inside the query, and restrict accepted input to the range where application and storage normalization agree. List how each writer spells a stored value and match every spelling where a match blocks an action. Test two spellings of one value, including an old and new value that differ only in case.
-- **Matching pipelines:** When adding a broader fallback to a multi-step matching pipeline, run it only on items no existing step resolves (including exact-match steps that run after it), and never let it rewrite an item an exact step would match. Make each decision depend only on data that always arrives together (the item and its variants), not on what else is in the batch. Never persist a fallback result where a higher-priority step will read it back as authoritative; if it must persist, make the exact-match step outrank every step that reads it. If a guard skips a tier for a whole group because one item matched earlier, propagate that match to the group's other items. Test an item that both the exact step and the fallback could resolve, in one batch and split across batches in both orders, plus a re-run.
-- **Async work outlives its UI:** A side effect that runs after an await (close, reset, navigate, clear selection, save a retry point) must apply only to the UI and record that started it: block replacing that UI until the request settles, or capture an instance token or record id at submit and apply the effect only if it still matches. Keep saved per-record state (retry points, drafts, selections) in a map keyed by record id, not one slot tagged with an id, and reset shared UI state such as open/closed flags when the record changes, since a route-param change may not remount the page. Test the interleavings: dismiss and reopen, and switch records while a request is pending, with the result arriving before and after the next record's UI opens.
-- **Async error paths:** Every async function and promise has a real catch path that produces a typed, meaningful error (server) or visible feedback with a retry where sensible (client). No bare `await` in handlers. Do not hold a transaction open across an external call.
-- **Changes across two systems:** When a change writes locally and then to an external system, serialize changes per record across both (a lease taken in the writing transaction, renewed before each external call and sized from the per-call timeout and retry bounds, released after; cover create paths too). Mark an item as touched before its first call, restore every field the external change touched (including ones it resets implicitly) to what the remote record actually had, and log a compare-and-set undo that matches nothing. If the change is interrupted by a newer one, don't half-revert: keep the local value, stop, log the drift, and make sure the interruption (not the first error) reaches the caller.
-- **Lock order:** Before stating or changing a lock order, find every writer of the tables involved (request handlers, jobs, imports, scripts), including explicit table locks, and make them all follow one order (e.g. parent row, then children in id order). A multi-row UPDATE/DELETE on rows others lock in a set order must first select the ids with `ORDER BY id FOR UPDATE`, then update by id. Test overlapping pairs with a deterministic lock-wait test.
-- **Contract changes reach every client:** When changing an endpoint's methods, validation, normalization or error shape, search for every request to it across all client code and branches (not just the shared helper) and every proxy in between (which methods and statuses it forwards). Persist the server-normalized value, route errors through the shared formatter, and when the server deploys before its clients, state what each current client does when the new check rejects it (including flows that half-succeed) and put that window in the deploy plan.
-- **Feedback on every path:** Every reachable path (success, validation failure, not-found, error, partial failure) returns a correctly typed, meaningful response or UI state: loading indicators, disabled in-flight controls, success/error messages. A success status with an ambiguous or empty body on failure is a bug.
-- **Outcomes from what was confirmed:** Attribute a per-item outcome (audit, history, local state) only to items the response identifies. If it returns only counts, compare them with the items actually sent in that request (after client-side filtering), attribute exactly only when the count settles it (all or none), record the rest as unconfirmed, and ask for item ids in the response. Scope an action's side effects (cleanup, invalidation, notifications) to the items it actually changed, not the items requested.
-- **Testability:** Structure code so the above can be unit tested in isolation: pure functions for logic, mockable data/external-API modules, and hooks/components that don't need the whole app mounted. Each security test must reach the rule it names: assert the preconditions that get past earlier checks and fallbacks, and confirm it fails when the rule is disabled. When a denial shares its response with a later "not found" path, also assert the work after the rule never ran (no query, transaction or write). Expected-failure tests must fail only for the vulnerable outcome.
-- **Guarantees held by configuration:** When code is safe only while other configuration keeps a property (a permission filter, a config value, a schema constraint), encode that property as a test that reads the real configuration, rather than a comment. Match the required clause only at the path that gives it meaning: reject it under `not`/`or` or unrelated relationships, follow only to-one relationships, and fail on unknown keys. Include a negative fixture for each bypass shape, and confirm the test fails on a realistic violation.
-- **Test the path that runs:** Before testing a derived value (ids, keys, query variables), trace from the user action to the consumer and confirm each function on that path is actually called (not commented out, not overridden by a wrapper). Test through those functions, and confirm the test fails with the fix removed.
-- **Test isolation:** Run tests through the project's own scripts, or reproduce their exact environment, with shared or production database credentials unset for that command. This includes tests run by git hooks, which inherit the shell's environment. An env prefix applies only to the first command of a chained script, so confirm a shell-exported `NODE_ENV` (or equivalent) is overridden for every command. Code that builds its own connection must fail closed rather than fall back to ambient credentials. With a test runner that shares modules between files (e.g. `--isolate=false`), keep logic under test in modules without import-time side effects and build production dependencies in the wiring layer so tests never load real implementations; when a module mock is unavoidable, load the module under test after the mock is registered and unregister it after the file; run several shuffled file orders (failures can depend on worker assignment) before calling it done.
-
-### Git & Branching
-
-- When cherry-picking onto a long-diverged branch, don't treat conflicts or missing references (helpers, enum members, parameters, files) as simple missing-file problems. First check which history each side assumes:
-  - Isolate the commit's real change with `git show <sha> -- <path>`; surrounding conflict context may just be stale.
-  - Find where a missing reference came from (`git log --diff-filter=A <source-branch> -- <path>`), and whether that commit is on the target (`git merge-base --is-ancestor <commit> HEAD`).
-  - If the target is already ahead (the code was extracted or moved there), keep the target's side and drop the incoming duplicate.
-- Default to the narrowest fix that preserves the target branch's current behavior, not the source branch's evolved behavior. Ask before pulling in unrelated features to satisfy a dependency.
-- After resolving, run the typecheck and confirm every new reference exists on the target branch.
-
-### Security & Penetration-Testing Standards
-
-Design and write all code as if it will be penetration tested. Treat every value that crosses a trust boundary (HTTP requests, GraphQL arguments, URL/query params, headers, cookies, form data, webhooks, message queues, files, third-party API responses, and data read from storage that users can write) as hostile until validated.
-
-#### Input Validation
-
-- Validate at the boundary with a runtime schema (use the project's existing validation library, or native checks if none exists). TypeScript types alone are not validation.
-- Use allow-lists, not deny-lists: explicit allowed fields, enums, formats, lengths, numeric ranges, and array sizes.
-- Reject unknown fields rather than silently passing them through (prevents mass assignment, e.g., a client setting `role`, `ownerId`, `isAdmin`, `tenantId`, or `createdAt`).
-- Map validated input to explicit internal types/DTOs; never spread raw request bodies into database writes or downstream calls.
-- Internal functions should take narrow, already-validated types so invalid states are unrepresentable (e.g., branded IDs, discriminated unions) rather than re-checking loosely typed input.
-- Use parameterized queries / ORM bindings only; never build SQL, NoSQL, shell commands, file paths, regexes, or URLs by concatenating user input. Guard against path traversal and SSRF where paths or URLs are user-influenced.
-- Fail closed: on validation or auth failure, reject the request; never fall back to a permissive default.
-
-#### Authorization & Data Access
-
-- Authenticate and authorize on the server for every request; never rely on the UI hiding something, client-side role checks, or obscure IDs.
-- Derive identity (user ID, tenant/org ID, roles) from the verified session/token only; never trust identity or ownership values supplied by the client.
-- Check authorization against the specific resource, not just the operation (prevent IDOR): "can this user read/modify *this* record?"
-- Scope queries at the data layer (e.g., `WHERE owner_id = :sessionUserId AND tenant_id = :sessionTenantId`) instead of fetching first and filtering afterward.
-- For updates/deletes, verify ownership in the same query or transaction as the write to avoid TOCTOU races.
-- Authorize the exact identifiers a mutation acts on. Access-check helpers must deny (not drop) malformed elements. Whenever an id is derived from the input (a parent, linked, or backing resource), run the access check on the derived id too, and audit sibling handlers that make the same derivation.
-- Before relying on a record to grant or order access, confirm the caller can't write the columns the rule depends on through any path (insert, update, upsert, or a copy/clone flow) (foreign keys, `id`, timestamps, soft-delete flags, URL or reference fields). If they can, the rule is forgeable; fix the write permission first. For tables that grant access (memberships, assignments), deny writes to their foreign keys for the roles they scope, and test that a role cannot reassign itself.
-- When an authorization decision is made in a query, test it against a real database with allowed and denied fixtures for every role (including inactive users and cross-tenant rows), running every query path the check can take. A missing table or column permission is an error, not an empty result.
-- A check that grants or widens access because a row is absent must hold even if that row was hard-deleted or cascade-deleted. List every way the row can disappear (hard deletes, `ON DELETE CASCADE`, cleanup jobs). If absence can't be established, fail closed, rely on evidence clients can't forge or remove (such as a storage-set timestamp), or have a person review each candidate, and make that reviewed list the required input of the step that acts on it (refusing anything not in it or changed since). When one absence check is found unsound, audit every sibling check in the same change that rests on a row existing.
-- Apply least privilege for roles, service accounts, API keys, and database users.
-- A lock, lease or "in progress" guard must not let the subject of a privileged action (deactivate, demote, revoke) hold that action off: let the privileged action take it over from a lower-privileged holder, limited to actions writing fields the holder never writes, and make the holder stop when it notices; its follow-up steps must lock and re-read the record's state before acting. Test the privileged action while the subject holds the lock.
-- Return the same response for "not found" and "not authorized" where existence itself is sensitive, to prevent enumeration.
-
-#### GraphQL-Specific
-
-- Enforce authorization in resolvers (or a shared auth layer/directive applied consistently), including field-level checks on sensitive fields and nested/relationship resolvers — not only on the top-level query.
-- Server-side scoping filters (owner, tenant, visibility, soft-delete) must be applied unconditionally and combined with `AND` so client-supplied filters cannot override, widen, or `OR` around them.
-- Allow-list which fields are filterable and sortable, and which operators are allowed per field; never pass client filter objects straight through to the ORM/database (prevents filtering or sorting on hidden fields such as `passwordHash`, `role`, or another tenant's data, and blocks operator injection like `$where`/`$regex`).
-- Mutation inputs must not include server-controlled fields (owner, tenant, role, status transitions the user may not perform); validate allowed state transitions explicitly.
-- Enforce pagination limits, query depth/complexity limits, and batching/alias limits to prevent resource exhaustion and data scraping.
-- Ensure DataLoaders and caches are keyed per request/user so data never leaks between users.
-- Disable introspection and verbose errors in production unless intentionally exposed.
-
-#### Errors, Logging & Secrets
-
-- Never leak stack traces, SQL, internal IDs, or validation internals to clients; return generic messages and log details server-side.
-- Never log secrets, tokens, passwords, or sensitive PII.
-- No hard-coded secrets; read them from environment/secret management.
-
-#### Front-end
-
-- Avoid `dangerouslySetInnerHTML` and unsanitized HTML/URLs (including `javascript:` URLs); validate redirects against an allow-list to prevent open redirects.
-- Never expose secrets via public env vars (e.g., `NEXT_PUBLIC_*`); keep privileged logic in server components, route handlers, or server actions — and authorize server actions like any other public endpoint.
-- Protect cookie-based state-changing requests against CSRF; use `HttpOnly`, `Secure`, and `SameSite` cookies.
-
-## "Review PR" Workflow
-
-When the user says "Review PR", follow these steps in order:
-
-### 1. Gather Context
-
-- Run git branch --show-current to get the current branch name.
-- Run git remote show origin | grep 'HEAD branch' to detect the default base branch (e.g., main, staging, `dev`).
-- Run git diff <default-branch>...HEAD to get the full diff against the detected base branch.
-- Run git log <default-branch>...HEAD --oneline to get the commit history for this branch.
-- Check whether .claude/<branch-name>.md exists (extracted from the branch name using the same pattern as "Start Task"). If it exists, read it — use it to understand the intended design and constraints so the review is grounded in what was actually planned.
-
-### 2. Review Phase
-
-Analyze the diff thoroughly. For each file changed, evaluate:
-
-Correctness
-
-- Logic errors, off-by-one errors, null/undefined dereferences
-- Unhandled edge cases or error paths
-- Async/await issues, missing error handling, unhandled promise rejections
-- Injection risks, missing input validation
-- Hard-coded secrets or credentials
-- Auth/permission checks missing or incorrectly applied
-
-Security (Penetration-Test Review)
-
-Review the diff as an attacker would, against the "Security & Penetration-Testing Standards" section. For each new or changed entry point, try to break it:
-
-- Can input bypass validation (unknown fields, wrong types, oversized values, unexpected enums, null/empty, unicode/encoding tricks)?
-- Can a user read, modify, or delete another user's or tenant's data by changing an ID, filter, sort, or nested selection (IDOR)?
-- Can a client-supplied GraphQL filter widen, override, or `OR` around server-enforced scoping, or filter/sort on fields it shouldn't see?
-- Can a mutation set server-controlled fields (owner, tenant, role, status) or perform a disallowed state transition (mass assignment / privilege escalation)?
-- Are nested resolvers, field resolvers, and DataLoaders authorized and scoped per user?
-- Are pagination, depth, and complexity limits enforced?
-- Do errors or responses leak internal details or reveal whether a resource exists?
-- Are there tests that prove the abuse cases are rejected, not just that the happy path works?
-
-Any missing authorization, scoping bypass, or exploitable validation gap is 🔴 Critical.
-
-Code Quality
-
-- Violations of SOLID principles
-- Opportunities to apply design patterns (Factory, Builder, Adapter, etc.)
-- Stateful code that could be made functional
-- Code that is harder to test than it needs to be
-
-TypeScript/React/Next.js Correctness
-
-- Incorrect or overly broad types (e.g., `any`)
-- Missing or incorrect dependency arrays in hooks
-- Unnecessary re-renders or missing memoization
-- Violations of React/Next.js best practices
-- Variables and parameters that could throw TypeScript errors (such as required variables that could be undefined from the caller)
-
-Test Coverage
-
-- Missing unit tests for new logic
-- Untested edge cases
-- Test structure inconsistencies with existing patterns (vitest, vi.hoisted, `@testing-library/react`)
-- Make sure that any code that uses fake timers properly and reset to using system timers after tests (such as a beforeEach with vi.useFakeTimers(), and a afterEach with vi.useRealTimers()).
-
-Consistency with Task Plan
-
-- If a .claude/<branch-name>.md file was found, flag any deviations from the agreed interfaces, types, or approach that were not previously discussed.
-
-Refactor Opportunities
-
-- Note any existing code touched by this PR that could be improved, without blocking the review.
-
-Lessons Learned
-
-- Run the **Check** of every lesson in the "Coding Lessons Learned" file against the diff. Report hits as normal issues, tagged with the lesson ID (e.g., `[L-004]`).
-
-### 3. Report Phase
-
-Present findings in the following format:
-
-#### Summary
-
-A 2-3 sentence overview of what the PR does and your overall assessment. Include the detected base branch so it's clear what the diff was measured against.
-
-#### Issues
-
-Group by severity:
-
-- 🔴 Critical — Must fix before merging (bugs, security issues, broken logic)
-- 🟡 Warning — Should fix (code quality, missing tests, type issues)
-- 🔵 Suggestion — Optional improvements (refactor opportunities, minor style)
-
-For each issue, include:
-
-- The file and line/function it relates to
-- A clear description of the problem
-- A concrete suggestion for how to fix it
-
-#### Verdict
-
-One of:
-
-- ✅ Ready to push — No critical issues found
-- ⚠️ Push with caution — Warnings present but no blockers
-- 🚫 Do not push — Critical issues must be resolved first
-
-### 4. Capture Lessons
-
-After the report, follow the "Capture" steps of the "Lessons Learned" workflow for any 🔴 or 🟡 issue in code Claude wrote.
-
-## "Lessons Learned" Workflow
-
-Turns review findings into generic, reusable rules so the same class of mistake is not repeated. Lessons live in a single global file that is backed up to a **public** git repository, so every lesson must be fully sanitized.
-
-The lessons file is imported here:
-
-@~/.claude/lessons/coding-lessons.md
-
-(Physical location: `~/dotfiles/config/claude/lessons/coding-lessons.md`, symlinked to `~/.claude/lessons`.)
-
-### Triggers
-
-Run the Capture steps when any of these happen:
-
-- A "Review PR" finds a 🔴 or 🟡 issue in code Claude wrote.
-- The user gives review feedback (their own or a teammate's PR comments) on code Claude wrote.
-- Claude finds a defect in its own code during self-review, testing, or debugging.
-- The user says "Capture lesson".
-
-### Capture
-
-1. **Find the root cause.** Ask "why did I write it this way?" until reaching the faulty assumption or skipped step, not the symptom. "Missing auth check on route X" is a symptom; "assumed shared middleware covered every route without verifying" is a root cause.
-2. **Generalize.** Restate the mistake and the rule so they apply to any codebase using the same language, framework, or pattern. If the lesson only makes sense with project context, it is not a lesson: skip it.
-3. **Deduplicate.** If an existing entry has the same root cause, increment **Seen**, append the source and month, and sharpen the rule if needed instead of adding a new entry.
-4. **Sanitize.** Apply every Sanitization Rule below, then the leak test.
-5. **Propose.** Show the user the exact new or changed entry text and wait for approval. Never write without approval.
-6. **Write and commit.** After approval, write the entry (using the next ID from the marker comment, and updating it), then commit only that file:
-   - `git -C ~/dotfiles add config/claude/lessons/coding-lessons.md`
-   - `git -C ~/dotfiles commit -m "lessons: <add|update> L-NNN <generic title>"`
-   - Never stage other files in the dotfiles repo as part of this step.
-   - Do NOT push. The user pushes manually; remind them that there are unpushed lesson commits.
-
-Skip one-off slips (typos, a wrong variable name) that do not reflect a reusable mistake.
-
-### Sanitization Rules
-
-Lessons are public and must be NDA-safe. An entry must NOT contain:
-
-- Names of companies, clients, employers, products, projects, repositories, teams, internal services, internal packages, or codenames.
-- People's names, usernames, or emails.
-- File paths, branch names, PR/issue/ticket numbers, commit hashes, URLs, domains, IP addresses, or hostnames.
-- Database, table, collection, column, queue, topic, or environment variable names from a project.
-- API endpoint paths, GraphQL type/field names, or other schema details from a project.
-- Business rules, domain concepts, feature names, or data that hints at what the product does.
-- Code copied or paraphrased from a project. Examples must be written fresh, a few lines at most, using neutral placeholders (`resource`, `item`, `userId`, `fetchThing`).
-- Secrets, credentials, tokens, or data samples of any kind.
-
-Allowed: public languages, frameworks, and libraries (e.g., TypeScript, React, Next.js, vitest, Zod, Prisma), general patterns and vulnerability classes (IDOR, TOCTOU, mass assignment), and a month-level date with a source type.
-
-**Leak test:** before proposing, ask "Could someone who knows my employer or clients recognize the project, product, or codebase from this entry?" If yes, or unsure, generalize further or drop it.
-
-### Apply
-
-- **Start Task:** during brainstorming, list the lessons relevant to the design.
-- **Implementation:** before declaring done, run each relevant lesson's **Check** against the diff.
-- **Review PR:** run every lesson's **Check** as part of the review.
-
-### Curate
-
-- When a lesson reaches **Seen: 3**, propose promoting its rule into the permanent standards sections of this file and removing the entry from the lessons file.
-- Keep the lessons file under ~40 entries. When it grows past that, propose merging overlapping entries and removing ones that have been promoted or no longer apply.
-- Curation changes follow the same propose → approve → commit flow as Capture.
-- Project-level memory is for project-specific context only. Generic coding lessons always go to the global lessons file, never to a project's memory.
+Before saying work is done:
+1. Typecheck, lint, and tests pass. Show the real output; never claim a pass without running it.
+2. Adversarial self-review of the diff: correctness paths (success, failure, partial failure, empty, races), security, simplicity, readability, coupling, scope. Use `~/.claude/reference/correctness.md` for anything touching concurrency, external systems, data sync, migrations, scripts, or authorization.
+3. Run the **Check** of every relevant lesson against the diff.
+4. Fix what you find, then report anything unverified or skipped.

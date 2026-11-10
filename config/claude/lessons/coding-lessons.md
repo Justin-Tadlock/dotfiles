@@ -1,10 +1,10 @@
 # Coding Lessons Learned
 
 Generic, root-cause lessons from reviews of code Claude wrote. Managed by the
-"Lessons Learned" workflow in CLAUDE.md.
+capture-lesson skill.
 
 PUBLIC FILE: it is synced to a public repo. Every entry must pass the
-Sanitization Rules in CLAUDE.md. No project, company, client, product, people,
+Sanitization Rules in the capture-lesson skill. No project, company, client, product, people,
 paths, schema, endpoints, or copied code.
 
 Entry format:
