@@ -19,8 +19,8 @@ Entry format:
 
 ---
 
-<!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative"; L-011 → CLAUDE.md "Authorization & Data Access"; L-018 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-014 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-027 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-028 → CLAUDE.md "Correctness & Resilience Checklist: Matching pipelines"; L-004 → CLAUDE.md "Correctness & Resilience Checklist: New states reach every consumer"; L-020 → CLAUDE.md "Correctness & Resilience Checklist: Async work outlives its UI"; L-049 → CLAUDE.md "Authorization & Data Access"; L-048 → CLAUDE.md "Correctness & Resilience Checklist: Outcomes from what was confirmed"; L-016 → CLAUDE.md "Correctness & Resilience Checklist: Same equality on both sides"; L-021 → CLAUDE.md "Correctness & Resilience Checklist: Contract changes reach every client"; L-035 → CLAUDE.md "Correctness & Resilience Checklist: Lock order"; L-041 → CLAUDE.md "Correctness & Resilience Checklist: Every variant of an action"; L-046 → CLAUDE.md "Correctness & Resilience Checklist: Test isolation"; L-064 → CLAUDE.md "Correctness & Resilience Checklist: Changes across two systems"; L-068 → CLAUDE.md "Authorization & Data Access" -->
-<!-- Merged: L-058 → L-010; L-042 → L-036; L-056 → L-053; L-060 → L-050; L-066 → L-023; L-034 → CLAUDE.md "Correctness & Resilience Checklist: Testability" -->
+<!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative"; L-011 → CLAUDE.md "Authorization & Data Access"; L-018 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-014 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-027 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-028 → CLAUDE.md "Correctness & Resilience Checklist: Matching pipelines"; L-004 → CLAUDE.md "Correctness & Resilience Checklist: New states reach every consumer"; L-020 → CLAUDE.md "Correctness & Resilience Checklist: Async work outlives its UI"; L-049 → CLAUDE.md "Authorization & Data Access"; L-048 → CLAUDE.md "Correctness & Resilience Checklist: Outcomes from what was confirmed"; L-016 → CLAUDE.md "Correctness & Resilience Checklist: Same equality on both sides"; L-021 → CLAUDE.md "Correctness & Resilience Checklist: Contract changes reach every client"; L-035 → CLAUDE.md "Correctness & Resilience Checklist: Lock order"; L-041 → CLAUDE.md "Correctness & Resilience Checklist: Every variant of an action"; L-046 → CLAUDE.md "Correctness & Resilience Checklist: Test isolation"; L-064 → CLAUDE.md "Correctness & Resilience Checklist: Changes across two systems"; L-068 → CLAUDE.md "Authorization & Data Access"; L-010 → CLAUDE.md "Correctness & Resilience Checklist: Guarantees held by configuration"; L-050 → CLAUDE.md "Correctness & Resilience Checklist: Operator scripts" -->
+<!-- Merged: L-058 → L-010 (promoted); L-042 → L-036; L-056 → L-053; L-060 → L-050 (promoted); L-066 → L-023; L-034 → CLAUDE.md "Correctness & Resilience Checklist: Testability" -->
 <!-- Lessons start below. Next ID: L-070 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
@@ -46,14 +46,6 @@ Entry format:
 - **Rule:** When adding a gate that unmounts content, list what that subtree registers in shared/global state (loading trackers, subscriptions, timers, listeners) and ensure it is cleared on every terminal path. Test that the cleanup fires exactly once per transition.
 - **Check:** For each new conditional render that hides existing children, look for start/register/subscribe calls inside those children without a matching cleanup on that path.
 - **Seen:** 1 (pr-review, 2026-10)
-
-### L-010: Policy guards weren't enforced by strict tests over the real configuration
-- **Area:** testing, authorization
-- **Pattern:** A test asserting "every permission rule requires clause X" searched the whole expression tree, so X under `not`/`or`, under an unrelated relationship, or reached through a one-to-many hop counted as enforcing the scope. Separately, code was safe only while every role's child-table permission stayed at least as broad as its parent permission; that was checked by hand once and recorded only as a comment.
-- **Root cause:** Wrote matchers for the shapes that existed, not the shapes a wrong rule could take, and treated a one-time manual check as a lasting guarantee though the condition lives in configuration other changes can edit.
-- **Rule:** When code is safe only while other configuration keeps a property (a permission filter, a config value, a schema constraint), encode it as a test that reads the real configuration. Match the required clause only at the path that gives it meaning: reject `not`/`or`/unrelated relationships, follow only to-one relationships, fail on unknown keys. Include a negative fixture for each bypass shape and confirm the test fails on a realistic violation.
-- **Check:** For each recursive policy matcher, try writing a rule that passes it without enforcing the policy; for each "safe only while / as long as" comment, find the test that enforces it.
-- **Seen:** 3 (pr-review, 2026-10; pr-review, 2026-10; pr-review, 2026-11)
 
 ### L-015: Parser bound did not match the storage type
 - **Area:** validation, types, persistence
@@ -230,14 +222,6 @@ Entry format:
 - **Rule:** Before mapping error statuses or messages, trace them through every hop to the browser for each role, and read the API handler's branches for empty or all-skipped input. Test at least one case through the proxy.
 - **Check:** For each status or message branch in client error handling, find the proxy code for that status and role, and the API branch that produces it. List the HTTP methods and statuses the proxy forwards before choosing routes and error codes.
 - **Seen:** 2 (pr-review, 2026-10; pr-review, 2026-11)
-
-### L-050: An operator script's safety gates weren't enforced in tested code
-- **Area:** testing, scripts, data migration
-- **Pattern:** A script's gates (apply only with a reviewed plan, filter to reviewed items, confirm before writing, write the rollback record first, exit non-zero on failure) lived only in the untested entry point. Separately, a new option that changed what the apply writes wasn't recorded in the reviewed dry run, so an operator could apply with a setting nobody reviewed.
-- **Root cause:** Treated the entry point as glue, and documented "use the same value" instead of binding it.
-- **Rule:** Keep the entry point to parsing, I/O and wiring; put orchestration in a function with injected data access, storage, prompt and record sink and a mode type that makes unsafe combinations unrepresentable. Record every input that changes what the apply writes in the dry-run output and refuse the apply on any mismatch. Test each gate and each mismatch (including an older dry-run file without the field), and confirm each test fails when its gate is removed.
-- **Check:** For each script entry point, list the conditions and side-effect order only it enforces; for each new option, confirm it's written to the dry run and compared when the reviewed file is loaded, using the real serialized output.
-- **Seen:** 3 (pr-review, 2026-11; self-review, 2026-11; self-review, 2026-11)
 
 ### L-051: Checked an allowlist object with `in`
 - **Area:** validation, JavaScript
