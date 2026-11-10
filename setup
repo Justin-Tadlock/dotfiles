@@ -188,6 +188,7 @@ main() {
     [[ -d "${HOME}/.claude" ]] && create_symlink "${script_config_dir}/claude/lessons" "${HOME}/.claude/lessons"
     [[ -d "${HOME}/.claude" ]] && create_symlink "${script_config_dir}/claude/reference" "${HOME}/.claude/reference"
     [[ -d "${HOME}/.claude" ]] && create_symlink "${script_config_dir}/claude/skills" "${HOME}/.claude/skills"
+    [[ -d "${HOME}/.claude" ]] && create_symlink "${script_config_dir}/claude/hooks" "${HOME}/.claude/hooks"
     echo "Done." && echo ""
   fi
 
