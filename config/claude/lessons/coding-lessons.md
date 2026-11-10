@@ -20,7 +20,7 @@ Entry format:
 ---
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative"; L-011 → CLAUDE.md "Authorization & Data Access"; L-018 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-014 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-027 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-028 → CLAUDE.md "Correctness & Resilience Checklist: Matching pipelines"; L-004 → CLAUDE.md "Correctness & Resilience Checklist: New states reach every consumer"; L-020 → CLAUDE.md "Correctness & Resilience Checklist: Async work outlives its UI"; L-049 → CLAUDE.md "Authorization & Data Access"; L-048 → CLAUDE.md "Correctness & Resilience Checklist: Outcomes from what was confirmed" -->
-<!-- Lessons start below. Next ID: L-068 -->
+<!-- Lessons start below. Next ID: L-070 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -64,11 +64,11 @@ Entry format:
 
 ### L-016: Compared counts from two layers that use different equality rules
 - **Area:** authorization, data access, validation
-- **Pattern:** Deduplicated input ids in application code with exact string equality, then required the database to return one row per id. The database compared the column type with its own equality rule (case-insensitive for that type), so two spellings of one id produced one row, the counts disagreed, and a valid request was denied. Later, an application-side normalizer (full-Unicode trim and lowercase) was documented as matching a database index built on a narrower trim and a collation-dependent lowercase, so pre-checks and the index could disagree on legacy or non-ASCII values.
+- **Pattern:** Deduplicated input ids in application code with exact string equality, then required the database to return one row per id. The database compared the column type with its own equality rule (case-insensitive for that type), so two spellings of one id produced one row, the counts disagreed, and a valid request was denied. Later, an application-side normalizer (full-Unicode trim and lowercase) was documented as matching a database index built on a narrower trim and a collation-dependent lowercase, so pre-checks and the index could disagree on legacy or non-ASCII values. Later, a "replace the old value unless the new one is already present" query compared both under the normalized form, so a change of case only found the old element itself as "already present" and dropped it.
 - **Root cause:** Assumed the application's notion of "same value" matched the database's, without checking how the column type compares values.
 - **Rule:** Before comparing an input count with a result count (or matching input values against returned values), put the input in the same canonical form the storage layer compares by (case, whitespace, numeric vs. string), then deduplicate. Test with two spellings of the same value. A stored reference may also spell the same value differently depending on its writer (percent-encoding, hex case, `+` for a space); list how each writer encodes it, and when a match blocks an action, match every spelling. Prefer applying the storage layer's own normalization to both sides inside the query over reimplementing it in application code, and restrict accepted input to the range where both agree.
-- **Check:** For each `new Set(...)` or dedup in the diff whose size is compared with a query's row count, confirm the elements are normalized to the column type's equality first, and that a test sends differently cased or formatted duplicates. For each match on a stored URL or path, list how its writers encode it and confirm a test covers each spelling.
-- **Seen:** 3 (pr-review, 2026-10; pr-review, 2026-11; pr-review, 2026-11)
+- **Check:** For each `new Set(...)` or dedup in the diff whose size is compared with a query's row count, confirm the elements are normalized to the column type's equality first, and that a test sends differently cased or formatted duplicates. For each match on a stored URL or path, list how its writers encode it and confirm a test covers each spelling. For each replace/dedupe query keyed by a normalized value, test an old and new value that differ only in case or whitespace.
+- **Seen:** 4 (pr-review, 2026-10; pr-review, 2026-11; pr-review, 2026-11; pr-review, 2026-11)
 
 ### L-017: A batched GraphQL access check fails entirely for a role that lacks one root field
 - **Area:** authorization, GraphQL
@@ -232,11 +232,11 @@ Entry format:
 
 ### L-041: One variant of an action skipped a precondition or side effect another variant performs
 - **Area:** validation, state transitions, data integrity
-- **Pattern:** The single-item path of an action refused items whose parent was already finalized, but the bulk path only filtered on the item's own status, so a bulk request could overwrite a parent's finalized state. Separately, a bulk "close" that replaced a client mutation copied that mutation's behavior (change one status column), while the server's own single-item reject also updated the other status columns and cleared a related row's pointer to the item; the leftover pointer blocked new submissions later. Later, a pending self-service change stayed valid after a manager changed the same field or deactivated the user, so confirming the stale link could undo the manager's change.
+- **Pattern:** The single-item path of an action refused items whose parent was already finalized, but the bulk path only filtered on the item's own status, so a bulk request could overwrite a parent's finalized state. Separately, a bulk "close" that replaced a client mutation copied that mutation's behavior (change one status column), while the server's own single-item reject also updated the other status columns and cleared a related row's pointer to the item; the leftover pointer blocked new submissions later. Later, a pending self-service change stayed valid after a manager changed the same field or deactivated the user, so confirming the stale link could undo the manager's change. Later, removing a user from a group through a new path left their membership in the group's sub-resources, and a recovery path adopting an existing account skipped the welcome email the normal path sends.
 - **Root cause:** Wrote the new variant from the item's own fields or from the code it replaced, without listing every check and every related write the existing variant of the same transition performs.
 - **Rule:** When an action has several forms (single and bulk, user-facing and administrative, an API path replacing a client write), derive them from one function that applies the same eligibility checks and the same related writes (status columns, pointers, counters), or list both and carry each one over. Test each refusal and each related write through every form. When a new path writes a field that has pending or queued changes elsewhere, cancel or re-validate those in the same transaction.
 - **Check:** For each new or changed variant of a state transition in the diff, find the other code paths that perform the same transition; list their refusal conditions and the columns and related rows they write, and confirm the variant applies each one, with a test per item.
-- **Seen:** 3 (self-review, 2026-10; user-feedback, 2026-10; pr-review, 2026-11)
+- **Seen:** 4 (self-review, 2026-10; user-feedback, 2026-10; pr-review, 2026-11; pr-review, 2026-11)
 
 ### L-042: Read the same rows twice in a transaction assuming both reads see the same data
 - **Area:** concurrency, database
@@ -280,11 +280,11 @@ Entry format:
 
 ### L-047: Mapped API errors on the client without checking what the proxy in between forwards
 - **Area:** error handling, API contracts, testing
-- **Pattern:** The client mapped the API's 400 messages, but a proxy turned 400s into 500s with a generic body for most roles, so the mapping only worked for one role. Separately, the API refused an "all items already handled" batch with a 400 instead of returning a zero count, so a skip was reported as a failure.
+- **Pattern:** The client mapped the API's 400 messages, but a proxy turned 400s into 500s with a generic body for most roles, so the mapping only worked for one role. Separately, the API refused an "all items already handled" batch with a 400 instead of returning a zero count, so a skip was reported as a failure. Later, new endpoints used PATCH/PUT while the proxy only forwarded GET and POST, and passed bodies only for 400, so the new conflict and retry messages could never reach the user.
 - **Root cause:** Tests mocked the client helper below the proxy, and the design followed the API's documented counts without reading its edge-case branches.
 - **Rule:** Before mapping error statuses or messages, trace them through every hop to the browser for each role, and read the API handler's branches for empty or all-skipped input. Test at least one case through the proxy.
-- **Check:** For each status or message branch in client error handling, find the proxy code for that status and role, and the API branch that produces it.
-- **Seen:** 1 (pr-review, 2026-10)
+- **Check:** For each status or message branch in client error handling, find the proxy code for that status and role, and the API branch that produces it. List the HTTP methods and statuses the proxy forwards before choosing routes and error codes.
+- **Seen:** 2 (pr-review, 2026-10; pr-review, 2026-11)
 
 ### L-050: Safety gates were wired only in an untested entry point
 - **Area:** testing, scripts, separation of concerns
@@ -392,19 +392,19 @@ Entry format:
 
 ### L-064: Compensation for a failed external step was incomplete or unsafe
 - **Area:** error handling, external APIs, consistency
-- **Pattern:** Applied a change to several remote records, each needing more than one call, and on failure reverted the records listed as done. A record was listed only after all its calls succeeded, so one whose first call succeeded and second call failed kept half the change. Later, a revert restored only the field it had changed (not the verification flag the change also reset), and a revert to the pre-change snapshot could overwrite a newer change committed by a concurrent request between the local write and the external call; a compare-and-set undo that matched nothing was not logged.
+- **Pattern:** Applied a change to several remote records, each needing more than one call, and on failure reverted the records listed as done. A record was listed only after all its calls succeeded, so one whose first call succeeded and second call failed kept half the change. Later, a revert restored only the field it had changed (not the verification flag the change also reset), and a revert to the pre-change snapshot could overwrite a newer change committed by a concurrent request between the local write and the external call; a compare-and-set undo that matched nothing was not logged. Later, the lease guarding a change expired before the worst case of the external calls it covered (timeouts and retries multiplied by the number of calls), and the create path took no lease at all.
 - **Root cause:** Treated a multi-call step as atomic when writing the rollback. Assumed no other writer could act between the local commit and the external call, and listed only the fields named in the change.
-- **Rule:** When a per-item step makes more than one remote call, mark the item as touched before its first call and make its revert safe to run on a partly applied item. Test a failure on a later call of the first item. Serialize changes per record across the local write and the external calls (a lease row taken in the writing transaction, released after), restore every field the external change touched to the value the remote record actually had, and log a compare-and-set undo that matches nothing.
+- **Rule:** When a per-item step makes more than one remote call, mark the item as touched before its first call and make its revert safe to run on a partly applied item. Test a failure on a later call of the first item. Serialize changes per record across the local write and the external calls (a lease row taken in the writing transaction, released after), restore every field the external change touched to the value the remote record actually had, and log a compare-and-set undo that matches nothing. Size a lease from the per-call bounds times the calls it covers, or renew it before each call and stop when renewal fails; cover create paths too.
 - **Check:** For each compensation loop in the diff, find where an item is added to the done list relative to its calls, and look for a test that fails mid-item. For each revert, list every field the forward call changes (including ones the remote system resets implicitly) and whether a concurrent request could have written in between.
-- **Seen:** 2 (self-review, 2026-11; pr-review, 2026-11)
+- **Seen:** 3 (self-review, 2026-11; pr-review, 2026-11; pr-review, 2026-11)
 
 ### L-065: Added a writer that stores an unverified value in a field consumers treat as verified
 - **Area:** authorization, identity, data integrity
-- **Pattern:** A field (an account's email) was trusted downstream as belonging to the user, because the only self-service path verified it first. A new administrative path set it directly, so a downstream token signer started asserting an address nobody had proven to own.
+- **Pattern:** A field (an account's email) was trusted downstream as belonging to the user, because the only self-service path verified it first. A new administrative path set it directly, so a downstream token signer started asserting an address nobody had proven to own. Later, the new verification flag defaulted to true, so rows inserted by older writers were trusted, and the check accepted a verified flag asserted by an external identity provider the customer controls.
 - **Root cause:** Checked who may call the new writer, not what every consumer assumes about values in that field.
-- **Rule:** When adding a writer to a field, list its consumers and the guarantees they rely on (verified, normalized, owned). If the new writer can't provide one, store that state explicitly (e.g. a verified flag) and make each consumer check it, failing closed.
+- **Rule:** When adding a writer to a field, list its consumers and the guarantees they rely on (verified, normalized, owned). If the new writer can't provide one, store that state explicitly (e.g. a verified flag) and make each consumer check it, failing closed. Default a trust flag to the untrusted value for new rows (backfill existing rows explicitly), and accept proof only from sources the system itself controls.
 - **Check:** For each new write to an identity or contact field in the diff, find every reader of that field that signs, sends to, or authorizes with it, and confirm the new value meets the reader's assumption or is marked so the reader refuses it.
-- **Seen:** 1 (pr-review, 2026-11)
+- **Seen:** 2 (pr-review, 2026-11; pr-review, 2026-11)
 
 ### L-066: Treated an uncertain result from an external system as definite
 - **Area:** external APIs, consistency, error handling
@@ -416,8 +416,24 @@ Entry format:
 
 ### L-067: An endpoint revealed existence before its rate limit applied
 - **Area:** security, enumeration
-- **Pattern:** A self-service endpoint answered "address in use" immediately and checked its per-user throttle only on the success path, so any signed-in user could test unlimited addresses for existence.
+- **Pattern:** A self-service endpoint answered "address in use" immediately and checked its per-user throttle only on the success path, so any signed-in user could test unlimited addresses for existence. Later, the throttle record was deleted on refusal paths, and one class of caller got a refusal only for unused identifiers, so it could still probe without limit.
 - **Root cause:** Placed the throttle where the expensive side effect (sending email) happens, not before the first branch that differs by existence.
-- **Rule:** Apply rate limits before any lookup whose outcome changes the response, and answer the same for existing and non-existing targets where existence is sensitive (move the difference into an out-of-band notice).
+- **Rule:** Apply rate limits before any lookup whose outcome changes the response, and answer the same for existing and non-existing targets where existence is sensitive (move the difference into an out-of-band notice). Keep the throttle record on every path (invalidate rather than delete it), and order checks so no branch differs by existence for any caller.
 - **Check:** For each endpoint in the diff that looks up a user-supplied identifier, compare the responses for "exists" and "doesn't exist" and confirm the throttle runs before that lookup.
+- **Seen:** 2 (pr-review, 2026-11; pr-review, 2026-11)
+
+### L-068: A lock guarding an action could be held by the action's own subject
+- **Area:** authorization, concurrency, availability
+- **Pattern:** A per-record lease kept two changes from interleaving. The record's owner could start self-service changes in a loop (each holding the lease while slow external calls ran), so an administrator's deactivation of that owner kept failing with "change in progress".
+- **Root cause:** Designed the lock for correctness between equals, without asking who can acquire it and whether a privileged action must win.
+- **Rule:** When a lock or lease can delay a privileged action (deactivate, demote, revoke), let the privileged action take it over from a lower-privileged holder, and make the holder stop when it notices. Test the privileged action while the subject holds the lock.
+- **Check:** For each lock, lease or "in progress" guard in the diff, list who can take it and which actions it blocks; flag any where the subject of a security action can block that action.
+- **Seen:** 1 (pr-review, 2026-11)
+
+### L-069: Edited a migration that may already have been applied instead of adding a new one
+- **Area:** database, migrations, deployment
+- **Pattern:** Added new columns and a table to a migration file that was already committed (and run against shared or developer databases). Migration tools track applied versions, so any database that had run that version would silently skip the additions and the code would fail at runtime.
+- **Root cause:** Treated "not yet deployed to production" as "not yet applied anywhere".
+- **Rule:** Once a migration is committed, put further schema changes in a new migration, unless you can confirm no database has applied it.
+- **Check:** For each changed (not added) migration file in the diff, check whether the earlier version was committed; if so, flag it.
 - **Seen:** 1 (pr-review, 2026-11)
