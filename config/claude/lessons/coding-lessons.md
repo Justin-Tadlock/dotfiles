@@ -20,6 +20,7 @@ Entry format:
 ---
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative"; L-011 → CLAUDE.md "Authorization & Data Access"; L-018 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-014 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-027 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-028 → CLAUDE.md "Correctness & Resilience Checklist: Matching pipelines"; L-004 → CLAUDE.md "Correctness & Resilience Checklist: New states reach every consumer"; L-020 → CLAUDE.md "Correctness & Resilience Checklist: Async work outlives its UI"; L-049 → CLAUDE.md "Authorization & Data Access"; L-048 → CLAUDE.md "Correctness & Resilience Checklist: Outcomes from what was confirmed"; L-016 → CLAUDE.md "Correctness & Resilience Checklist: Same equality on both sides"; L-021 → CLAUDE.md "Correctness & Resilience Checklist: Contract changes reach every client"; L-035 → CLAUDE.md "Correctness & Resilience Checklist: Lock order"; L-041 → CLAUDE.md "Correctness & Resilience Checklist: Every variant of an action"; L-046 → CLAUDE.md "Correctness & Resilience Checklist: Test isolation"; L-064 → CLAUDE.md "Correctness & Resilience Checklist: Changes across two systems"; L-068 → CLAUDE.md "Authorization & Data Access" -->
+<!-- Merged: L-058 → L-010; L-042 → L-036; L-056 → L-053; L-060 → L-050; L-066 → L-023; L-034 → CLAUDE.md "Correctness & Resilience Checklist: Testability" -->
 <!-- Lessons start below. Next ID: L-070 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
@@ -46,13 +47,13 @@ Entry format:
 - **Check:** For each new conditional render that hides existing children, look for start/register/subscribe calls inside those children without a matching cleanup on that path.
 - **Seen:** 1 (pr-review, 2026-10)
 
-### L-010: Structural policy test matched a required clause at any depth
+### L-010: Policy guards weren't enforced by strict tests over the real configuration
 - **Area:** testing, authorization
-- **Pattern:** A test asserting "every permission rule requires clause X" searched the whole expression tree for X, so X under an unrelated relationship, under a negation/disjunction, or reached through a one-to-many relationship satisfied it without enforcing the intended scope. Through a to-many hop, X means "some related row qualifies", not "this row qualifies".
-- **Root cause:** Wrote the matcher for the shapes that existed, not for the shapes an incorrect rule could take.
-- **Rule:** Policy-lint tests must match the required clause only at the specific path that gives the scoping meaning: reject it under `not`/`or`/unrelated relationships, follow only single-row (to-one) relationships to reach it, and treat unknown keys as failing. Include negative fixtures for each bypass shape.
-- **Check:** For each recursive matcher in a policy test, try writing a rule that passes the matcher but doesn't enforce the policy (including one that reaches the clause through a to-many relationship); if one exists, flag it.
-- **Seen:** 2 (pr-review, 2026-10; pr-review, 2026-10)
+- **Pattern:** A test asserting "every permission rule requires clause X" searched the whole expression tree, so X under `not`/`or`, under an unrelated relationship, or reached through a one-to-many hop counted as enforcing the scope. Separately, code was safe only while every role's child-table permission stayed at least as broad as its parent permission; that was checked by hand once and recorded only as a comment.
+- **Root cause:** Wrote matchers for the shapes that existed, not the shapes a wrong rule could take, and treated a one-time manual check as a lasting guarantee though the condition lives in configuration other changes can edit.
+- **Rule:** When code is safe only while other configuration keeps a property (a permission filter, a config value, a schema constraint), encode it as a test that reads the real configuration. Match the required clause only at the path that gives it meaning: reject `not`/`or`/unrelated relationships, follow only to-one relationships, fail on unknown keys. Include a negative fixture for each bypass shape and confirm the test fails on a realistic violation.
+- **Check:** For each recursive policy matcher, try writing a rule that passes it without enforcing the policy; for each "safe only while / as long as" comment, find the test that enforces it.
+- **Seen:** 3 (pr-review, 2026-10; pr-review, 2026-10; pr-review, 2026-11)
 
 ### L-015: Parser bound did not match the storage type
 - **Area:** validation, types, persistence
@@ -86,13 +87,13 @@ Entry format:
 - **Check:** For each limited query in the diff, check whether its results are filtered further in code. If so, flag it.
 - **Seen:** 1 (pr-review, 2026-10)
 
-### L-023: Error handling classified failures from only the first hop of a multi-step request
-- **Area:** async, error handling, UX
-- **Pattern:** A flow made an authorized API call and then fetched the resource it pointed to. The caller mapped "not found" using the HTTP client's error type, but the second hop threw a plain `Error`, so a missing resource after a successful first hop showed an unrelated generic/network message.
-- **Root cause:** Wrote the status-based branch for the first request's error shape without listing which other steps can produce the same condition with a different error type.
-- **Rule:** When a caller branches on failure kind, list every step that can produce that kind, have each throw a typed error preserving the status, and classify through one shared helper rather than a client-library-specific check at the call site. Test each step's failure separately.
-- **Check:** For each `isXError(error) && status === N` branch in the diff, trace every awaited step in the called function; flag any step that can fail with the same meaning but throws a different error type.
-- **Seen:** 1 (pr-review, 2026-10)
+### L-023: Classified a failure without knowing which step or outcome it represents
+- **Area:** error handling, external APIs
+- **Pattern:** A caller mapped "not found" from the first request's error type, but a second step threw a plain `Error`, so users saw an unrelated message. Separately, a create call timed out and the local record was deleted as if nothing had been created, and an eventually consistent search returning nothing right after a write was taken as "none".
+- **Root cause:** Mapped failures by their first or most common shape, without asking which step can produce each and which answers the remote system guarantees.
+- **Rule:** List every step that can produce a failure kind, have each throw a typed error keeping the status, and classify through one shared helper. Split definite refusals (4xx) from ambiguous outcomes (timeouts, network errors, 5xx); on ambiguity keep a recoverable local state rather than deleting. Cross-check eventually consistent lookups with a consistent one. Test each step's failure and an ambiguous one.
+- **Check:** For each status-based branch, trace every awaited step; for each external create/update, ask what happens if a failed call actually succeeded.
+- **Seen:** 2 (pr-review, 2026-10; pr-review, 2026-11)
 
 ### L-024: Validated a request's host but let the HTTP client follow redirects
 - **Area:** security, SSRF, secrets handling
@@ -158,21 +159,13 @@ Entry format:
 - **Check:** For each handler in the diff, compare the route's allowed roles with the roles its access helper accepts for the same access level; if the route is narrower, confirm the handler re-checks the role and a direct test covers it.
 - **Seen:** 1 (pr-review, 2026-10)
 
-### L-034: Denial test passed through a later "not found" instead of the rule it named
-- **Area:** testing, authorization
-- **Pattern:** A unit test asserted a denied caller got 404. With the rule removed, the handler went on to query the test database, found no such record, and also returned 404, so the test still passed.
-- **Root cause:** Assumed no data layer was reachable in unit tests, so any 404 had to come from the rule, without checking how the test environment routes default connections.
-- **Rule:** When a denial shares its response with a later "not found" path, assert that the work after the rule never ran (inject the transaction runner or data layer and assert it was not called), and confirm the test fails with the rule disabled.
-- **Check:** For each test in the diff that expects a denial status, ask whether a later step could return the same status; if so, confirm it asserts a boundary (no query, no transaction, no write) as well as the status.
-- **Seen:** 1 (self-review, 2026-10)
-
-### L-036: Relied on a service's transaction method without checking that it pins one connection
+### L-036: Relied on transaction guarantees without checking them
 - **Area:** database, concurrency
-- **Pattern:** Added a row lock inside an existing `service.transaction(...)` call. The service wrapped a connection pool, and its transaction method sent BEGIN and COMMIT as ordinary queries, so each statement could run on a different pooled connection. The lock didn't hold, statements ran outside the transaction, and a connection could be left with a transaction still open.
-- **Root cause:** Trusted the method name without reading whether it checks out a dedicated client.
-- **Rule:** Before relying on a transaction for locks, atomicity or rollback, confirm the helper checks out one connection and runs every statement and the commit on it. With a pool, use the helper that acquires a client and releases it in `finally`.
-- **Check:** For each transaction in the diff, find where its connection comes from. Flag it if the object it runs on may be a pool rather than a checked-out client.
-- **Seen:** 1 (pr-review, 2026-10)
+- **Pattern:** A service's `transaction()` sent BEGIN/COMMIT as ordinary pooled queries, so statements ran on different connections and locks didn't hold. Separately, a handler authorized rows and then re-selected them for the write; under READ COMMITTED a concurrent change between the reads made the write act on fewer rows than were checked.
+- **Root cause:** Trusted a method name and assumed one transaction means one connection and one snapshot.
+- **Rule:** Before relying on a transaction for locks, atomicity or consistent reads, confirm it checks out one connection for every statement and the commit. Write from the rows you authorized (pass their values) or lock them in the first read, checking the locks can't deadlock with the write's own. Test with a change committed on another connection between check and write.
+- **Check:** For each transaction, find where its connection comes from; for each `INSERT ... SELECT`/`UPDATE ... FROM` over rows checked earlier in the same transaction, confirm they're locked or passed in.
+- **Seen:** 2 (pr-review, 2026-10; user-feedback, 2026-10)
 
 ### L-037: NULL comparisons silently passed or dropped rows
 - **Area:** authorization, SQL
@@ -206,14 +199,6 @@ Entry format:
 - **Check:** For each `UPDATE ... FROM` / join-driven update in the diff, ask whether the source can contain several rows for one target row; if so, confirm the source is deduplicated with a stated rule and a test covers it.
 - **Seen:** 1 (self-review, 2026-10)
 
-### L-042: Read the same rows twice in a transaction assuming both reads see the same data
-- **Area:** concurrency, database
-- **Pattern:** A handler loaded and authorized a set of rows, then wrote using a second query that read those rows again with the same filters. Under READ COMMITTED each statement sees newly committed data, so a concurrent change between the two reads made the write act on fewer rows than were checked, and the request still reported success.
-- **Root cause:** Assumed one transaction gives one snapshot, without checking the isolation level or whether the rows were locked.
-- **Rule:** Write from the rows you authorized (pass their values into the write) rather than re-selecting them, or lock them in the first read. Before choosing locks, check that they can't deadlock with the write's own conflict or row locks in overlapping requests. Test with a change committed on another connection between the check and the write.
-- **Check:** For each write in the diff that uses `INSERT ... SELECT` / `UPDATE ... FROM` over rows an earlier statement in the same transaction read and checked, confirm the rows are locked or the write uses the checked values, and that a test commits a change between the two.
-- **Seen:** 1 (user-feedback, 2026-10)
-
 ### L-043: Put a test file inside a directory the framework serves as routes
 - **Area:** testing, deployment
 - **Pattern:** Added tests next to API route handlers in a file-system-routed framework. The build config didn't exclude test files, so each would have been built and served as an endpoint.
@@ -246,13 +231,13 @@ Entry format:
 - **Check:** For each status or message branch in client error handling, find the proxy code for that status and role, and the API branch that produces it. List the HTTP methods and statuses the proxy forwards before choosing routes and error codes.
 - **Seen:** 2 (pr-review, 2026-10; pr-review, 2026-11)
 
-### L-050: Safety gates were wired only in an untested entry point
-- **Area:** testing, scripts, separation of concerns
-- **Pattern:** An operator script's pure planning and per-item steps were unit tested, but the rules that combine them (apply only with a reviewed plan, filter to the reviewed items, ask before writing, write the rollback record before the first item, exit non-zero on failure) lived only in the entry function that parses arguments and touches files. They were correct when written, but a refactor could have broken any of them without a test failing.
-- **Root cause:** Treated the entry point as glue and checked the gates by reading it, without noticing that the safety controls added in review lived only there.
-- **Rule:** Keep a script's entry point to argument parsing, file I/O and wiring. Put the orchestration in a function that takes its data access, storage, prompt and record sink as parameters, with a mode type that makes unsafe combinations unrepresentable (e.g. apply requires the reviewed set), and test each gate there. Confirm each test fails when its gate is removed.
-- **Check:** For each script or job entry point in the diff, list the conditions it checks and the order of its side effects; flag any that only that untested function enforces.
-- **Seen:** 2 (pr-review, 2026-11; self-review, 2026-11)
+### L-050: An operator script's safety gates weren't enforced in tested code
+- **Area:** testing, scripts, data migration
+- **Pattern:** A script's gates (apply only with a reviewed plan, filter to reviewed items, confirm before writing, write the rollback record first, exit non-zero on failure) lived only in the untested entry point. Separately, a new option that changed what the apply writes wasn't recorded in the reviewed dry run, so an operator could apply with a setting nobody reviewed.
+- **Root cause:** Treated the entry point as glue, and documented "use the same value" instead of binding it.
+- **Rule:** Keep the entry point to parsing, I/O and wiring; put orchestration in a function with injected data access, storage, prompt and record sink and a mode type that makes unsafe combinations unrepresentable. Record every input that changes what the apply writes in the dry-run output and refuse the apply on any mismatch. Test each gate and each mismatch (including an older dry-run file without the field), and confirm each test fails when its gate is removed.
+- **Check:** For each script entry point, list the conditions and side-effect order only it enforces; for each new option, confirm it's written to the dry run and compared when the reviewed file is loaded, using the real serialized output.
+- **Seen:** 3 (pr-review, 2026-11; self-review, 2026-11; self-review, 2026-11)
 
 ### L-051: Checked an allowlist object with `in`
 - **Area:** validation, JavaScript
@@ -270,13 +255,13 @@ Entry format:
 - **Check:** For each field the diff passes to a logging, persistence or request helper, confirm the helper's body forwards it to the final write, and that some test asserts it in that write's payload. Flag any helper whose parameter type has fields its body never reads.
 - **Seen:** 1 (pr-review, 2026-11)
 
-### L-053: Made an untrusted response type honest by erasing its shape
-- **Area:** types, API contracts, validation
-- **Pattern:** Replaced a response generic that was asserted but never checked with an opaque `Record<string, unknown>` / `unknown` so the runtime checks below it were required. Developers lost the only in-code description of the response, and property typos compiled.
-- **Root cause:** Treated the request generic only as a type claim to remove, not also as documentation of the contract.
-- **Rule:** For unvalidated responses, keep the field names and drop only the value types (e.g. `type Unchecked<T> = { [K in keyof T]?: unknown }`), typed from the same interface the function returns after validation, so there's one source of truth.
-- **Check:** For each request generic or cast in the diff typed `unknown`, `any` or `Record<string, unknown>`, confirm the expected fields are still named by a type developers can navigate to.
-- **Seen:** 1 (user-feedback, 2026-11)
+### L-053: Result types drifted from what the code actually receives
+- **Area:** types, API contracts
+- **Pattern:** An unvalidated response generic was replaced with `Record<string, unknown>`, erasing the only in-code description of the response so property typos compiled. Separately, a query stopped selecting a field but its result type (a broad entity type intersected with extras) still declared it, so readers compiled and got `undefined`.
+- **Root cause:** Treated types as either a claim to remove or something that tracks the query by itself, instead of the contract to keep in step with what's fetched.
+- **Rule:** For unvalidated data, keep the field names and drop only the value types (`{ [K in keyof T]?: unknown }`) derived from the validated type. When a selection changes, rebuild the result type from it (`Omit<Entity, 'field'> & {...}`) and retype callbacks that use the broad entity type.
+- **Check:** For each `unknown`/`any`/`Record<string, unknown>` response type, confirm the fields are still named; for each field removed from a selection, confirm the result type no longer declares it.
+- **Seen:** 2 (user-feedback, 2026-11; pr-review, 2026-11)
 
 ### L-054: Cherry-picked a string key without checking what it matches on the target branch
 - **Area:** git, configuration, cross-branch ports
@@ -286,14 +271,6 @@ Entry format:
 - **Check:** For each cherry-picked change to a config map, registry or key-to-handler table, search the target branch for the consumer that matches those keys and compare both sides; look for a test that feeds the actual definitions through the lookup.
 - **Seen:** 1 (self-review, 2026-11)
 
-### L-056: Stopped selecting a field but left the result type declaring it
-- **Area:** types, API contracts
-- **Pattern:** Swapped one field for another in a query's selection set. The query's result type was a broad entity type intersected with extras, so it still declared the dropped field as required, and a mapper labelled the rows with the full entity type. Code reading the old field would have compiled and received `undefined`.
-- **Root cause:** Changed the selection without checking how the result type was built; assumed the type tracked the query.
-- **Rule:** When a query stops selecting a field, remove it from the result type (e.g. `Omit<Entity, 'field'> & {...}`) and retype any callbacks that label those rows with the broader entity type. Let the typecheck find the readers.
-- **Check:** For each field removed from a selection set in the diff, find the type the result is cast to; if it still declares the field (directly or through an intersected base type), flag it.
-- **Seen:** 1 (pr-review, 2026-11)
-
 ### L-057: Appended default sort keys without checking overlap with the user's sort
 - **Area:** data access, pagination
 - **Pattern:** Added fixed tiebreakers (name, then id) after the user's sort to make pagination stable. When the user sorted by one of the tiebreaker fields, the order list named that field twice with opposite directions, relying on unverified server behavior for duplicates.
@@ -302,28 +279,12 @@ Entry format:
 - **Check:** For each `[userValue, ...defaults]` composition in the diff, ask what happens when the user's value uses a default's key; confirm a test covers it.
 - **Seen:** 1 (pr-review, 2026-11)
 
-### L-058: A safety condition that depends on other configuration was recorded only as a comment
-- **Area:** authorization, testing
-- **Pattern:** A derived value (a count over child rows) bypassed the child table's row permissions. It was safe only because every role's child permission was at least as broad as its parent permission. That was checked by hand once and written down as a code comment, so narrowing a child permission later would have silently exposed counts of rows the role can't see.
-- **Root cause:** Treated a one-time manual check as a lasting guarantee, though the condition lives in configuration that other changes can edit.
-- **Rule:** When code is safe only while another file keeps some property (a permission filter, a config value, a schema constraint), encode that property as a test that reads the real configuration and fails when the property stops holding. Match strict shapes (see L-010), and confirm the test fails on a realistic violation, not on an edit that still satisfies the property.
-- **Check:** For each comment in the diff of the form "safe only while / as long as / revisit if", find the test that enforces it; if there is none, flag it.
-- **Seen:** 1 (pr-review, 2026-11)
-
 ### L-059: Used an object's last-modified time as the time its content was written
 - **Area:** storage, data migration
 - **Pattern:** A migration decided which objects an old code version wrote by comparing their last-modified time with the date that version was replaced. An earlier bulk job had changed access settings on most objects, which reset that timestamp, so every object looked new and the migration refused all of them.
 - **Root cause:** Treated a storage-set timestamp as evidence of when the content was written, without listing past operations that update it (ACL changes, metadata rewrites, in-place copies).
 - **Rule:** Before deciding by an object's last-modified time, search history for bulk jobs that touched the objects, and check real objects' dates for clusters. Treat dates inside such a job's window as unknown, not as dates.
 - **Check:** For each comparison of an object's last-modified time in the diff, look for a dry run showing the real date distribution and for bulk object-rewrite scripts in history.
-- **Seen:** 1 (self-review, 2026-11)
-
-### L-060: Added an input to a reviewed apply step without binding it to the reviewed artifact
-- **Area:** scripts, data migration, safety gates
-- **Pattern:** An apply step took a reviewed dry-run file and checked it against some run inputs, but a newly added option that changed which items the apply would write was not compared with the value used for the dry run, so the operator could apply with a setting nobody reviewed.
-- **Root cause:** Added the option to the run without listing which checks bind the reviewed file to the apply, and documented "use the same value" instead of enforcing it.
-- **Rule:** When an apply is gated on a reviewed dry run, record every input that changes what the apply writes in the dry-run output, and refuse the apply unless each one matches. Test a mismatch for each input, and an older dry-run file that lacks the field.
-- **Check:** For each new option in a script with dry-run/apply modes, confirm it is written to the dry-run output and compared when the reviewed file is loaded, and that a test feeds the output the dry run actually writes, after JSON serialization, into the reviewed-file loader.
 - **Seen:** 1 (self-review, 2026-11)
 
 ### L-061: Logged caller-chosen object keys as if they were safe metadata
@@ -357,14 +318,6 @@ Entry format:
 - **Rule:** When adding a writer to a field, list its consumers and the guarantees they rely on (verified, normalized, owned). If the new writer can't provide one, store that state explicitly (e.g. a verified flag) and make each consumer check it, failing closed. Default a trust flag to the untrusted value for new rows (backfill existing rows explicitly), and accept proof only from sources the system itself controls.
 - **Check:** For each new write to an identity or contact field in the diff, find every reader of that field that signs, sends to, or authorizes with it, and confirm the new value meets the reader's assumption or is marked so the reader refuses it.
 - **Seen:** 2 (pr-review, 2026-11; pr-review, 2026-11)
-
-### L-066: Treated an uncertain result from an external system as definite
-- **Area:** external APIs, consistency, error handling
-- **Pattern:** A create call to an identity provider timed out and the local record was deleted as if nothing had been created, though the provider may have created the account, leaving it pointing at nothing. Separately, the provider's search index (which lags behind writes) returned no accounts right after one was created, and the caller treated that as "no accounts".
-- **Root cause:** Mapped every failure to "not done" and every empty result to "none", without asking which answers the provider guarantees.
-- **Rule:** Split external failures into definite refusals (4xx) and ambiguous ones (timeouts, network errors, 5xx). On ambiguity, keep a recoverable local state (e.g. disabled, retryable) instead of deleting. Don't rely on an eventually consistent search to find records just written; cross-check with a consistent lookup.
-- **Check:** For each external create/update in the diff, find the failure branch and ask what happens if the call actually succeeded; for each search used to find records the same flow may have just written, confirm a consistent lookup backs it.
-- **Seen:** 1 (pr-review, 2026-11)
 
 ### L-067: An endpoint revealed existence before its rate limit applied
 - **Area:** security, enumeration
