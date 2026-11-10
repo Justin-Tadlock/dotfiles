@@ -424,11 +424,11 @@ Entry format:
 
 ### L-068: A lock guarding an action could be held by the action's own subject
 - **Area:** authorization, concurrency, availability
-- **Pattern:** A per-record lease kept two changes from interleaving. The record's owner could start self-service changes in a loop (each holding the lease while slow external calls ran), so an administrator's deactivation of that owner kept failing with "change in progress". Later, the fix let every administrative change take over the subject's lock, including changes to the same fields the subject's in-flight request was writing, so the stale request's write could land after the newer one.
+- **Pattern:** A per-record lease kept two changes from interleaving. The record's owner could start self-service changes in a loop (each holding the lease while slow external calls ran), so an administrator's deactivation of that owner kept failing with "change in progress". Later, the fix let every administrative change take over the subject's lock, including changes to the same fields the subject's in-flight request was writing, so the stale request's write could land after the newer one. Later, the request that lost the lock still ran its follow-up steps (moving the user's address on notification lists) after the takeover had deactivated the user, putting a deactivated user back on the lists.
 - **Root cause:** Designed the lock for correctness between equals, without asking who can acquire it and whether a privileged action must win.
-- **Rule:** When a lock or lease can delay a privileged action (deactivate, demote, revoke), let the privileged action take it over from a lower-privileged holder, and make the holder stop when it notices. Test the privileged action while the subject holds the lock. Limit takeover to actions that write fields the holder never writes; everything else waits.
+- **Rule:** When a lock or lease can delay a privileged action (deactivate, demote, revoke), let the privileged action take it over from a lower-privileged holder, and make the holder stop when it notices. Test the privileged action while the subject holds the lock. Limit takeover to actions that write fields the holder never writes; everything else waits. Follow-up steps of a request that can be taken over must lock and re-read the record's state before acting.
 - **Check:** For each lock, lease or "in progress" guard in the diff, list who can take it and which actions it blocks; flag any where the subject of a security action can block that action.
-- **Seen:** 2 (pr-review, 2026-11; pr-review, 2026-11)
+- **Seen:** 3 (pr-review, 2026-11; pr-review, 2026-11; pr-review, 2026-11)
 
 ### L-069: Edited a migration that may already have been applied instead of adding a new one
 - **Area:** database, migrations, deployment
