@@ -19,9 +19,9 @@ Entry format:
 
 ---
 
-<!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative"; L-011 → CLAUDE.md "Authorization & Data Access"; L-018 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-014 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-027 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-028 → CLAUDE.md "Correctness & Resilience Checklist: Matching pipelines"; L-004 → CLAUDE.md "Correctness & Resilience Checklist: New states reach every consumer"; L-020 → CLAUDE.md "Correctness & Resilience Checklist: Async work outlives its UI"; L-049 → CLAUDE.md "Authorization & Data Access"; L-048 → CLAUDE.md "Correctness & Resilience Checklist: Outcomes from what was confirmed"; L-016 → CLAUDE.md "Correctness & Resilience Checklist: Same equality on both sides"; L-021 → CLAUDE.md "Correctness & Resilience Checklist: Contract changes reach every client"; L-035 → CLAUDE.md "Correctness & Resilience Checklist: Lock order"; L-041 → CLAUDE.md "Correctness & Resilience Checklist: Every variant of an action"; L-046 → CLAUDE.md "Correctness & Resilience Checklist: Test isolation"; L-064 → CLAUDE.md "Correctness & Resilience Checklist: Changes across two systems"; L-068 → CLAUDE.md "Authorization & Data Access"; L-010 → CLAUDE.md "Correctness & Resilience Checklist: Guarantees held by configuration"; L-050 → CLAUDE.md "Correctness & Resilience Checklist: Operator scripts" -->
+<!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative"; L-011 → CLAUDE.md "Authorization & Data Access"; L-018 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-014 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-027 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-028 → CLAUDE.md "Correctness & Resilience Checklist: Matching pipelines"; L-004 → CLAUDE.md "Correctness & Resilience Checklist: New states reach every consumer"; L-020 → CLAUDE.md "Correctness & Resilience Checklist: Async work outlives its UI"; L-049 → CLAUDE.md "Authorization & Data Access"; L-048 → CLAUDE.md "Correctness & Resilience Checklist: Outcomes from what was confirmed"; L-016 → CLAUDE.md "Correctness & Resilience Checklist: Same equality on both sides"; L-021 → CLAUDE.md "Correctness & Resilience Checklist: Contract changes reach every client"; L-035 → CLAUDE.md "Correctness & Resilience Checklist: Lock order"; L-041 → CLAUDE.md "Correctness & Resilience Checklist: Every variant of an action"; L-046 → CLAUDE.md "Correctness & Resilience Checklist: Test isolation"; L-064 → CLAUDE.md "Correctness & Resilience Checklist: Changes across two systems"; L-068 → CLAUDE.md "Authorization & Data Access"; L-010 → CLAUDE.md "Correctness & Resilience Checklist: Guarantees held by configuration"; L-050 → CLAUDE.md "Correctness & Resilience Checklist: Operator scripts"; L-023 → reference/correctness.md "Unknown is not negative" -->
 <!-- Merged: L-058 → L-010 (promoted); L-042 → L-036; L-056 → L-053; L-060 → L-050 (promoted); L-066 → L-023; L-034 → CLAUDE.md "Correctness & Resilience Checklist: Testability" -->
-<!-- Lessons start below. Next ID: L-073 -->
+<!-- Lessons start below. Next ID: L-076 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -78,14 +78,6 @@ Entry format:
 - **Rule:** Push every eligibility filter into the query before the limit. If anything still has to be filtered in code, page until found or exhausted, with a hard cap that fails closed.
 - **Check:** For each limited query in the diff, check whether its results are filtered further in code. If so, flag it.
 - **Seen:** 1 (pr-review, 2026-10)
-
-### L-023: Classified a failure without knowing which step or outcome it represents
-- **Area:** error handling, external APIs
-- **Pattern:** A caller mapped "not found" from the first request's error type, but a second step threw a plain `Error`, so users saw an unrelated message. Separately, a create call timed out and the local record was deleted as if nothing had been created, and an eventually consistent search returning nothing right after a write was taken as "none".
-- **Root cause:** Mapped failures by their first or most common shape, without asking which step can produce each and which answers the remote system guarantees.
-- **Rule:** List every step that can produce a failure kind, have each throw a typed error keeping the status, and classify through one shared helper. Split definite refusals (4xx) from ambiguous outcomes (timeouts, network errors, 5xx); on ambiguity keep a recoverable local state rather than deleting. Cross-check eventually consistent lookups with a consistent one. Test each step's failure and an ambiguous one.
-- **Check:** For each status-based branch, trace every awaited step; for each external create/update, ask what happens if a failed call actually succeeded.
-- **Seen:** 2 (pr-review, 2026-10; pr-review, 2026-11)
 
 ### L-024: Validated a request's host but let the HTTP client follow redirects
 - **Area:** security, SSRF, secrets handling
@@ -315,9 +307,9 @@ Entry format:
 - **Area:** database, migrations, deployment
 - **Pattern:** Added new columns and a table to a migration file that was already committed (and run against shared or developer databases). Migration tools track applied versions, so any database that had run that version would silently skip the additions and the code would fail at runtime.
 - **Root cause:** Treated "not yet deployed to production" as "not yet applied anywhere".
-- **Rule:** Once a migration is committed, put further schema changes in a new migration, unless you can confirm no database has applied it.
+- **Rule:** Once a migration is committed, put further schema changes in a new migration, unless you can confirm no database has applied it. CI deploy rules aren't the only thing that applies migrations: local and teammates' development databases that ran the branch do too, so check or ask about those before editing.
 - **Check:** For each changed (not added) migration file in the diff, check whether the earlier version was committed; if so, flag it.
-- **Seen:** 1 (pr-review, 2026-11)
+- **Seen:** 2 (pr-review, 2026-11; self-review, 2026-11)
 
 ### L-070: Stated a timing bound in a comment instead of deriving it from the limits
 - **Area:** concurrency, external APIs
@@ -341,4 +333,28 @@ Entry format:
 - **Root cause:** Assumed two references that should agree actually do, without checking which writers set each one, and combined them with OR, so the weaker link short-circuited the stricter check.
 - **Rule:** When two independently written links relate the same records, either pick one as the source of truth for the decision or require both to agree; never let either one alone grant access. Before relying on a denormalized column, list its writers and confirm something keeps it consistent. Test a target whose links disagree, in each direction, and one with only the weaker link.
 - **Check:** For each scope or access predicate in the diff, look for an early `return true` on one relationship ahead of a stricter check on another. Confirm what keeps the two consistent, and look for tests where they disagree.
+- **Seen:** 1 (pr-review, 2026-11)
+
+### L-073: A rate limit counted rows that other paths replace or delete
+- **Area:** rate limiting, concurrency
+- **Pattern:** Per-user and per-target limits counted the current pending-request rows. A new request replaced the user's row and completing one deleted it, so moving a request to another target gave the first target its allowance back, and completing one reset the user's counters. The per-target count-then-insert was serialized only by per-user row locks, so concurrent requests from different users both saw room. A race test sent every request as one caller, whose own row lock serialized them, so it passed without the fix.
+- **Root cause:** Reused the record of current state as the history the limit needs, and assumed the locks already taken covered every request sharing the limit's key.
+- **Rule:** Keep rate-limit history in an append-only log (one row per counted action, pruned by age), separate from mutable state. Serialize each limit's check and record on the limit's key (e.g. a transaction-scoped advisory lock), taken in a fixed order after other locks. Race-test with callers that share no other lock, and confirm the test fails with the key lock removed.
+- **Check:** For each limit in the diff, list every path that updates or deletes the rows it counts, and find the lock that serializes two requests sharing only the limit key.
+- **Seen:** 1 (pr-review, 2026-11)
+
+### L-074: Classified an identity-provider account by its id and missed identities linked into it
+- **Area:** authentication, external identity providers
+- **Pattern:** A check refused provider-managed accounts by each account id's provider prefix. With account linking, the provider folds a linked login into the primary's identities list and search returns only the primary, so a password account with a linked SSO login passed.
+- **Root cause:** Treated the account id as the whole description of how the user signs in, without reading the provider's model for linked identities.
+- **Rule:** When a decision depends on how a user authenticates, request and check every identity on the account, fail closed when that data is missing or unrecognized, and test an account with a linked identity of each kind.
+- **Check:** For each check on an account id prefix or connection type, confirm the lookup returns linked identities and the check covers all of them.
+- **Seen:** 1 (pr-review, 2026-11)
+
+### L-075: A hand-written format validator checked syntax but not the standard's limits
+- **Area:** validation
+- **Pattern:** An address validator checked the allowed characters per part and the overall length, but accepted parts and labels over their length limits and labels with hyphens at the edges, so it saved records that downstream mail and login systems would refuse.
+- **Root cause:** Wrote the validator from the character rules alone, without listing the standard's per-part length and position limits.
+- **Rule:** When hand-writing a validator for a standardized format, list the standard's per-part limits (length, first and last characters, counts) and every downstream consumer's stricter limits, then enforce all of them. Test each limit at its boundary from both sides.
+- **Check:** For each new validator, find the governing standard and confirm there is a boundary test for each length and edge-character rule.
 - **Seen:** 1 (pr-review, 2026-11)
