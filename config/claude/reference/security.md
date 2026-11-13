@@ -27,6 +27,10 @@ Design and write all code as if it will be penetration tested. Treat every value
 - A lock, lease or "in progress" guard must not let the subject of a privileged action (deactivate, demote, revoke) hold that action off: let the privileged action take it over from a lower-privileged holder, limited to actions writing fields the holder never writes, and make the holder stop when it notices; its follow-up steps must lock and re-read the record's state before acting. Test the privileged action while the subject holds the lock.
 - Return the same response for "not found" and "not authorized" where existence itself is sensitive, to prevent enumeration.
 
+## Rate Limiting & Abuse
+
+- Apply a limit before the first step that costs something shared (an external API with a tenant-wide quota, outbound mail) or whose outcome changes the response; a check placed only where the final side effect happens leaves every earlier step free. Count every attempt that reached such a step, not only successes: refusal paths (no-op, conflict, wrong account type) that write nothing to the counted log are unlimited. Answer the same for existing and non-existing targets where existence is sensitive (move the difference into an out-of-band notice), and order checks so no branch differs by existence for any caller. For each endpoint, list every return path after the first external call or existence lookup and confirm each one is counted or preceded by the limit; test that a refused request makes no external call.
+
 ## GraphQL-Specific
 
 - Enforce authorization in resolvers (or a shared auth layer/directive applied consistently), including field-level checks on sensitive fields and nested/relationship resolvers — not only on the top-level query.
