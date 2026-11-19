@@ -95,13 +95,13 @@ Entry format:
 - **Check:** For each lookup on a synced/cached column in the diff, search for writes to the corresponding live column; flag any path that updates one without the other.
 - **Seen:** 2 (pr-review, 2026-10; pr-review, 2026-11)
 
-### L-026: Per-file random counters for fixture IDs in a shared test database
+### L-026: Treated a test file as isolated from others sharing one test database
 - **Area:** testing, integration
-- **Pattern:** Each test file started its own counter at a random offset for unique-keyed fixture IDs. Files run in parallel against one database whose rows persist, so the ranges could overlap and fail on the primary key intermittently.
-- **Root cause:** Treated a random start as uniqueness without considering that the module state is per file while the database is shared.
-- **Rule:** Allocate fixture values that must be unique across test files from the shared store (a database sequence created during test setup), not module-level counters or random values.
-- **Check:** For each `Math.random()` or module-level counter feeding a unique column in test helpers, flag it if more than one test file can insert into that table.
-- **Seen:** 1 (pr-review, 2026-10)
+- **Pattern:** Each test file started its own counter at a random offset for unique-keyed fixture IDs. Files run in parallel against one database whose rows persist, so the ranges could overlap and fail on the primary key intermittently. Later, a lock-order test took whole-table locks to mimic a background job, and deadlocked other test files that were inserting into the same tables at the same time.
+- **Root cause:** Reasoned about a test's state and locks as if its file ran alone, while the database is shared by files running in parallel.
+- **Rule:** Allocate fixture values that must be unique across test files from the shared store (a database sequence created during test setup), not module-level counters or random values. Keep a test's locks to the rows it created; to prove lock order against a whole-table locker, take only the first table lock and assert which locks the waiting transaction holds (from the lock catalog) instead of reproducing the deadlock.
+- **Check:** For each `Math.random()` or module-level counter feeding a unique column in test helpers, flag it if more than one test file can insert into that table. For each table-level lock taken in a test, flag it if other test files write that table, and run the full suite several times while watching the database log for deadlocks.
+- **Seen:** 2 (pr-review, 2026-10; self-review, 2026-11)
 
 ### L-029: Hid a persistent write inside a function used as a lookup/mapper
 - **Area:** separation of concerns, data access, testability
