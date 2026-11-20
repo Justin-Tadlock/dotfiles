@@ -21,7 +21,7 @@ Entry format:
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative"; L-011 → CLAUDE.md "Authorization & Data Access"; L-018 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-014 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-027 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-028 → CLAUDE.md "Correctness & Resilience Checklist: Matching pipelines"; L-004 → CLAUDE.md "Correctness & Resilience Checklist: New states reach every consumer"; L-020 → CLAUDE.md "Correctness & Resilience Checklist: Async work outlives its UI"; L-049 → CLAUDE.md "Authorization & Data Access"; L-048 → CLAUDE.md "Correctness & Resilience Checklist: Outcomes from what was confirmed"; L-016 → CLAUDE.md "Correctness & Resilience Checklist: Same equality on both sides"; L-021 → CLAUDE.md "Correctness & Resilience Checklist: Contract changes reach every client"; L-035 → CLAUDE.md "Correctness & Resilience Checklist: Lock order"; L-041 → CLAUDE.md "Correctness & Resilience Checklist: Every variant of an action"; L-046 → CLAUDE.md "Correctness & Resilience Checklist: Test isolation"; L-064 → CLAUDE.md "Correctness & Resilience Checklist: Changes across two systems"; L-068 → CLAUDE.md "Authorization & Data Access"; L-010 → CLAUDE.md "Correctness & Resilience Checklist: Guarantees held by configuration"; L-050 → CLAUDE.md "Correctness & Resilience Checklist: Operator scripts"; L-023 → reference/correctness.md "Unknown is not negative"; L-067 → reference/security.md "Rate Limiting & Abuse"; L-047 → reference/correctness.md "Errors through every hop" -->
 <!-- Merged: L-058 → L-010 (promoted); L-042 → L-036; L-056 → L-053; L-060 → L-050 (promoted); L-066 → L-023; L-034 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-052 → correctness.md "Every writer" (promoted); L-080 → correctness.md "Lock order" (promoted) -->
-<!-- Lessons start below. Next ID: L-085 -->
+<!-- Lessons start below. Next ID: L-088 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -397,4 +397,28 @@ Entry format:
 - **Root cause:** Wrote the constraint change for correctness only, without asking which locks it takes and for how long on production-sized tables.
 - **Rule:** On tables that may be large, add or re-add constraints NOT VALID (with a short lock_timeout) and validate them in a separate migration, which does not block writes. Do the same for any DDL that rewrites or scans a table.
 - **Check:** For each ADD CONSTRAINT, ALTER COLUMN TYPE or index creation in a migration, name the table's likely size and the lock taken, and confirm large tables use NOT VALID + VALIDATE (or CONCURRENTLY for indexes).
+- **Seen:** 1 (pr-review, 2026-11)
+
+### L-085: Ordered explicit row locks but forgot the locks foreign-key checks take
+- **Area:** database, concurrency, lock order
+- **Pattern:** A writer re-checked a parent row with a shared row lock, then inserted or updated child-referencing rows. A concurrent deleter held exclusive row locks on the referenced child rows and was waiting for the parent. Each foreign-key check needs a key-share lock on the referenced row, which the deleter's exclusive lock blocks, so the two deadlocked even though every explicit lock looked ordered.
+- **Root cause:** Compared only the explicit `FOR SHARE` / `FOR UPDATE` statements of the two transactions, not the implicit locks their writes take (foreign-key checks, unique checks, updated rows).
+- **Rule:** When ordering locks between transactions, include the referenced rows each insert or foreign-key update locks. Take the same explicit locks in the same order as the other writer (children before parent if it does), and lock rows you only update non-key columns of with `FOR NO KEY UPDATE`, which does not block foreign-key checks.
+- **Check:** For each new lock or re-check in the diff, list the later writes in that transaction and the rows their foreign keys reference; confirm no concurrent writer holds `FOR UPDATE` on those rows while waiting for a lock this transaction already holds.
+- **Seen:** 1 (pr-review, 2026-11)
+
+### L-086: A new early exit in a worker left the in-progress status it had set
+- **Area:** queues, background jobs, state
+- **Pattern:** A worker marked a record "in progress" when it started and set a final status on success or error. A new branch for a benign cancellation returned early without setting any final status, so the record showed "in progress" forever.
+- **Root cause:** Added the exit by looking only at the error-handling block, not at the status writes made earlier in the same job.
+- **Rule:** Every exit path of a job that set a transient status must set a final one (or explicitly restore the previous one). Test each new exit path and assert the stored status afterwards.
+- **Check:** For each new `return` or skip branch in a job, find every transient status the job writes before it and confirm the branch replaces it.
+- **Seen:** 1 (pr-review, 2026-11)
+
+### L-087: Added a lock to an existing transaction without checking how long it stays open
+- **Area:** database, concurrency, external systems
+- **Pattern:** To fix a lock-order problem, a row lock was added at the start of an existing transaction that later made a slow external call. The lock was now held for the whole call, blocking other writers and timing out unrelated requests.
+- **Root cause:** Reviewed only the new statement's position relative to other locks, not what the rest of the transaction does while the lock is held.
+- **Rule:** Before adding a lock to a transaction, read the whole transaction; if it makes an external call, move the call after commit (or before the transaction) first.
+- **Check:** For each new `FOR UPDATE` / `FOR SHARE` / table lock in the diff, scan the rest of its transaction for network calls and long loops.
 - **Seen:** 1 (pr-review, 2026-11)
