@@ -404,8 +404,8 @@ Entry format:
 - **Pattern:** A writer re-checked a parent row with a shared row lock, then inserted or updated child-referencing rows. A concurrent deleter held exclusive row locks on the referenced child rows and was waiting for the parent. Each foreign-key check needs a key-share lock on the referenced row, which the deleter's exclusive lock blocks, so the two deadlocked even though every explicit lock looked ordered.
 - **Root cause:** Compared only the explicit `FOR SHARE` / `FOR UPDATE` statements of the two transactions, not the implicit locks their writes take (foreign-key checks, unique checks, updated rows).
 - **Rule:** When ordering locks between transactions, include the referenced rows each insert or foreign-key update locks. Take the same explicit locks in the same order as the other writer (children before parent if it does), and lock rows you only update non-key columns of with `FOR NO KEY UPDATE`, which does not block foreign-key checks.
-- **Check:** For each new lock or re-check in the diff, list the later writes in that transaction and the rows their foreign keys reference; confirm no concurrent writer holds `FOR UPDATE` on those rows while waiting for a lock this transaction already holds.
-- **Seen:** 1 (pr-review, 2026-11)
+- **Check:** For each new lock or re-check in the diff, list the later writes in that transaction and the rows their foreign keys reference; confirm no concurrent writer holds `FOR UPDATE` on those rows while waiting for a lock this transaction already holds. When fixing one such lock, grep for every other `FOR UPDATE` / `FOR SHARE` on the same rows (shared lock helpers included) and apply the same lock mode.
+- **Seen:** 2 (pr-review, 2026-11; pr-review, 2026-11: fixed the deleter's lock mode but routed other writers through a helper that still used `FOR UPDATE`)
 
 ### L-086: A new early exit in a worker left the in-progress status it had set
 - **Area:** queues, background jobs, state
@@ -420,5 +420,5 @@ Entry format:
 - **Pattern:** To fix a lock-order problem, a row lock was added at the start of an existing transaction that later made a slow external call. The lock was now held for the whole call, blocking other writers and timing out unrelated requests.
 - **Root cause:** Reviewed only the new statement's position relative to other locks, not what the rest of the transaction does while the lock is held.
 - **Rule:** Before adding a lock to a transaction, read the whole transaction; if it makes an external call, move the call after commit (or before the transaction) first.
-- **Check:** For each new `FOR UPDATE` / `FOR SHARE` / table lock in the diff, scan the rest of its transaction for network calls and long loops.
-- **Seen:** 1 (pr-review, 2026-11)
+- **Check:** For each new `FOR UPDATE` / `FOR SHARE` / table lock in the diff, scan the rest of its transaction for network calls and long loops. A shared lock on a row the same transaction later updates also risks a lock-upgrade deadlock between two copies of it; lock with the mode the later update needs.
+- **Seen:** 2 (pr-review, 2026-11; pr-review, 2026-11)
