@@ -21,7 +21,7 @@ Entry format:
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative"; L-011 → CLAUDE.md "Authorization & Data Access"; L-018 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-014 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-027 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-028 → CLAUDE.md "Correctness & Resilience Checklist: Matching pipelines"; L-004 → CLAUDE.md "Correctness & Resilience Checklist: New states reach every consumer"; L-020 → CLAUDE.md "Correctness & Resilience Checklist: Async work outlives its UI"; L-049 → CLAUDE.md "Authorization & Data Access"; L-048 → CLAUDE.md "Correctness & Resilience Checklist: Outcomes from what was confirmed"; L-016 → CLAUDE.md "Correctness & Resilience Checklist: Same equality on both sides"; L-021 → CLAUDE.md "Correctness & Resilience Checklist: Contract changes reach every client"; L-035 → CLAUDE.md "Correctness & Resilience Checklist: Lock order"; L-041 → CLAUDE.md "Correctness & Resilience Checklist: Every variant of an action"; L-046 → CLAUDE.md "Correctness & Resilience Checklist: Test isolation"; L-064 → CLAUDE.md "Correctness & Resilience Checklist: Changes across two systems"; L-068 → CLAUDE.md "Authorization & Data Access"; L-010 → CLAUDE.md "Correctness & Resilience Checklist: Guarantees held by configuration"; L-050 → CLAUDE.md "Correctness & Resilience Checklist: Operator scripts"; L-023 → reference/correctness.md "Unknown is not negative"; L-067 → reference/security.md "Rate Limiting & Abuse"; L-047 → reference/correctness.md "Errors through every hop" -->
 <!-- Merged: L-058 → L-010 (promoted); L-042 → L-036; L-056 → L-053; L-060 → L-050 (promoted); L-066 → L-023; L-034 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-052 → correctness.md "Every writer" (promoted); L-080 → correctness.md "Lock order" (promoted) -->
-<!-- Lessons start below. Next ID: L-083 -->
+<!-- Lessons start below. Next ID: L-084 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -382,3 +382,11 @@ Entry format:
 - **Rule:** When a filter drops items from a batch, derive every later step from the filtered set, and return early when it is empty. Test a batch made only of items the filter drops.
 - **Check:** For each new filter on a batch read, list every later use of the original input ids and confirm each one uses the filtered set instead.
 - **Seen:** 1 (self-review, 2026-11)
+
+### L-083: Guarded a new terminal state only where work starts, not where in-flight work commits
+- **Area:** concurrency, soft delete, external systems
+- **Pattern:** A record gained a terminal state (deleted, cancelled). Every entry point checked it before starting, but jobs that had passed the check before the record changed kept running through a slow external call and then wrote results back for the terminal record.
+- **Root cause:** Treated "checked at the start" as "checked", without asking what happens to work already past the check when the state changes.
+- **Rule:** For each job that reads a record, waits on an external call, then writes, re-check the state inside the transaction that writes, under a lock that orders it with the state change, and abort cleanly if it changed. Test the order where the state change commits between the external call and the write.
+- **Check:** For each new terminal state in the diff, list every writer that spans an external call or a queue, and confirm each re-checks the state in its writing transaction, with a test for the interleaving.
+- **Seen:** 1 (pr-review, 2026-11)
