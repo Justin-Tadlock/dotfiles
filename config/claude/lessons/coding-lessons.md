@@ -388,8 +388,8 @@ Entry format:
 - **Pattern:** A record gained a terminal state (deleted, cancelled). Every entry point checked it before starting, but jobs that had passed the check before the record changed kept running through a slow external call and then wrote results back for the terminal record.
 - **Root cause:** Treated "checked at the start" as "checked", without asking what happens to work already past the check when the state changes.
 - **Rule:** For each job that reads a record, waits on an external call, then writes, re-check the state inside the transaction that writes, under a lock that orders it with the state change, and abort cleanly if it changed. Test the order where the state change commits between the external call and the write.
-- **Check:** For each new terminal state in the diff, list every writer that spans an external call or a queue, and confirm each re-checks the state in its writing transaction, with a test for the interleaving.
-- **Seen:** 1 (pr-review, 2026-11)
+- **Check:** For each new terminal state in the diff, list every writer that spans an external call or a queue, and confirm each re-checks the state in every transaction it writes in after that call (not only the first), with a test for the interleaving.
+- **Seen:** 2 (pr-review, 2026-11; pr-review, 2026-11)
 
 ### L-084: Swapped a foreign key on a large table in one validating statement
 - **Area:** database, migrations
