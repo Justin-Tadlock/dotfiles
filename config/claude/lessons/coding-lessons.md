@@ -21,7 +21,7 @@ Entry format:
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative"; L-011 → CLAUDE.md "Authorization & Data Access"; L-018 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-014 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-027 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-028 → CLAUDE.md "Correctness & Resilience Checklist: Matching pipelines"; L-004 → CLAUDE.md "Correctness & Resilience Checklist: New states reach every consumer"; L-020 → CLAUDE.md "Correctness & Resilience Checklist: Async work outlives its UI"; L-049 → CLAUDE.md "Authorization & Data Access"; L-048 → CLAUDE.md "Correctness & Resilience Checklist: Outcomes from what was confirmed"; L-016 → CLAUDE.md "Correctness & Resilience Checklist: Same equality on both sides"; L-021 → CLAUDE.md "Correctness & Resilience Checklist: Contract changes reach every client"; L-035 → CLAUDE.md "Correctness & Resilience Checklist: Lock order"; L-041 → CLAUDE.md "Correctness & Resilience Checklist: Every variant of an action"; L-046 → CLAUDE.md "Correctness & Resilience Checklist: Test isolation"; L-064 → CLAUDE.md "Correctness & Resilience Checklist: Changes across two systems"; L-068 → CLAUDE.md "Authorization & Data Access"; L-010 → CLAUDE.md "Correctness & Resilience Checklist: Guarantees held by configuration"; L-050 → CLAUDE.md "Correctness & Resilience Checklist: Operator scripts"; L-023 → reference/correctness.md "Unknown is not negative"; L-067 → reference/security.md "Rate Limiting & Abuse"; L-047 → reference/correctness.md "Errors through every hop" -->
 <!-- Merged: L-058 → L-010 (promoted); L-042 → L-036; L-056 → L-053; L-060 → L-050 (promoted); L-066 → L-023; L-034 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-052 → correctness.md "Every writer" (promoted); L-080 → correctness.md "Lock order" (promoted) -->
-<!-- Lessons start below. Next ID: L-082 -->
+<!-- Lessons start below. Next ID: L-083 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -374,3 +374,11 @@ Entry format:
 - **Rule:** Never log an HTTP client's error object, or an array or wrapper containing one. Log an explicit summary instead (name, message, code, status, method, URL without query secrets). When collecting errors for later logging, convert each one at the point it is caught.
 - **Check:** For each logger call in the diff that takes an error, or a collection of errors, from an HTTP client, confirm it logs a summary instead of the object, and that a test asserts a credential header value never appears in the log output.
 - **Seen:** 1 (pr-review, 2026-11)
+
+### L-082: A guard filtered a batch at the read step, but later steps used the unfiltered input
+- **Area:** correctness, batch operations
+- **Pattern:** A batch handler read the requested items with a new filter that skips some of them, but a later step (recompute, follow-up jobs) still took the caller's original id list, so it acted on the skipped items anyway.
+- **Root cause:** Added the filter where the items are read and assumed every later step used what was read, without tracing each later use of the input list.
+- **Rule:** When a filter drops items from a batch, derive every later step from the filtered set, and return early when it is empty. Test a batch made only of items the filter drops.
+- **Check:** For each new filter on a batch read, list every later use of the original input ids and confirm each one uses the filtered set instead.
+- **Seen:** 1 (self-review, 2026-11)
