@@ -442,10 +442,10 @@ Entry format:
 ### L-093: Added a server-side visibility rule to one read endpoint and missed a sibling endpoint over the same data
 - **Area:** authorization, data access
 - **Pattern:** A rule hiding some records from most roles was enforced server-side in one export endpoint, which ANDed a filter onto the client's query and checked the role from the session. A second export endpoint over the same records (used by a different, admin-only UI action) still checked only that a token existed and passed the client's filter through, so any signed-in user could call it directly and read the hidden records.
-- **Root cause:** Scoped the fix to the endpoint named in the report and the UI that calls it, instead of listing every server entry point that returns the records the rule protects. Treated "only admins see the button" as if it limited who can call the endpoint.
-- **Rule:** When adding or tightening a visibility rule for a set of records, search for every server entry point that reads those records (list, export, count, aggregate, download, batch and admin-only variants) by the query or table they use, not by the caller in the report. Enforce the rule, or a stricter role gate, in each one, and test each one directly with a role the UI never shows it to.
-- **Check:** For each new server-side filter or role check in the diff, grep for other handlers that query the same data. Each one must apply the same filter or gate, or the diff must say why it is exempt.
-- **Seen:** 1 (pr-review, 2026-11)
+- **Root cause:** Scoped the fix to the endpoint named in the report and the UI that calls it, instead of listing every reader of the records the rule protects. Treated "only admins see the button" as if it limited who can call the endpoint. A later sibling search covered only server routes and missed a client query (a dashboard summary card) reading the same table directly.
+- **Rule:** When adding or tightening a visibility rule for a set of records, search for every reader of those records by the table or query root they use, not by the caller in the report: server entry points (list, export, count, aggregate, download, batch and admin-only variants) and client queries (summary cards, widgets, search). Make each one use the shared filter, or a stricter role gate, and test each one directly with a role the UI never shows it to.
+- **Check:** For each new visibility filter or role check in the diff, grep the whole codebase (handlers and client queries) for the table or query root it protects. Each reader must apply the same shared filter or gate, or the diff must say why it is exempt.
+- **Seen:** 2 (pr-review, 2026-11; pr-review, 2026-11)
 
 ### L-094: Made a dormant UI control reachable without reviewing what it does when used
 - **Area:** React, UI state
