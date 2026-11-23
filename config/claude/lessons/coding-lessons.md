@@ -459,9 +459,9 @@ Entry format:
 - **Area:** React, UI state
 - **Pattern:** A table keeps selected rows across pages and filter changes. A new switch removed whole groups of rows from the list, but the selection was not cleared. Selection counts and bulk actions kept showing the old selection, while their server queries (the selected ids ANDed with the new filters) silently skipped the rows that had left the list.
 - **Root cause:** Changed which rows a list contains without checking which state was derived from the old row set (selection, expanded rows, cached counts) and how bulk actions combine that state with the current filters.
-- **Rule:** When adding a control that changes a list's row set, list the state derived from the rows and clear or revalidate it on change. Bulk actions must act on exactly what the UI counts.
+- **Rule:** When adding a control that changes a list's row set, list the state derived from the rows and clear or revalidate it on change. Key the reset on the list's whole effective filter (every column filter, toggle and base filter), not on the control you just added, so later controls are covered too. Bulk actions must act on exactly what the UI counts.
 - **Check:** For each filter or toggle the diff adds or makes reachable (including revived controls next to the new one), find the table's selection or derived state and confirm it is cleared on change, with a test that changes each control and asserts the selection is cleared. Prefer one key derived from every row-set control over a per-control reset.
-- **Seen:** 2 (pr-review, 2026-11; pr-review, 2026-11)
+- **Seen:** 3 (pr-review, 2026-11; pr-review, 2026-11; pr-review, 2026-11)
 
 ### L-096: Checked a bulk action's count, not the filter the action actually executes with
 - **Area:** UI state, data integrity
