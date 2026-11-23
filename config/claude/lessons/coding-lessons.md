@@ -21,7 +21,7 @@ Entry format:
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative"; L-011 → CLAUDE.md "Authorization & Data Access"; L-018 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-014 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-027 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-028 → CLAUDE.md "Correctness & Resilience Checklist: Matching pipelines"; L-004 → CLAUDE.md "Correctness & Resilience Checklist: New states reach every consumer"; L-020 → CLAUDE.md "Correctness & Resilience Checklist: Async work outlives its UI"; L-049 → CLAUDE.md "Authorization & Data Access"; L-048 → CLAUDE.md "Correctness & Resilience Checklist: Outcomes from what was confirmed"; L-016 → CLAUDE.md "Correctness & Resilience Checklist: Same equality on both sides"; L-021 → CLAUDE.md "Correctness & Resilience Checklist: Contract changes reach every client"; L-035 → CLAUDE.md "Correctness & Resilience Checklist: Lock order"; L-041 → CLAUDE.md "Correctness & Resilience Checklist: Every variant of an action"; L-046 → CLAUDE.md "Correctness & Resilience Checklist: Test isolation"; L-064 → CLAUDE.md "Correctness & Resilience Checklist: Changes across two systems"; L-068 → CLAUDE.md "Authorization & Data Access"; L-010 → CLAUDE.md "Correctness & Resilience Checklist: Guarantees held by configuration"; L-050 → CLAUDE.md "Correctness & Resilience Checklist: Operator scripts"; L-023 → reference/correctness.md "Unknown is not negative"; L-067 → reference/security.md "Rate Limiting & Abuse"; L-047 → reference/correctness.md "Errors through every hop"; L-036 → reference/correctness.md "Transaction guarantees"; L-087 → reference/correctness.md "Lock order"; L-083 → reference/correctness.md "New states reach every consumer" -->
 <!-- Merged: L-058 → L-010 (promoted); L-042 → L-036; L-056 → L-053; L-060 → L-050 (promoted); L-066 → L-023; L-034 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-052 → correctness.md "Every writer" (promoted); L-080 → correctness.md "Lock order" (promoted) -->
-<!-- Lessons start below. Next ID: L-093 -->
+<!-- Lessons start below. Next ID: L-095 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -437,4 +437,20 @@ Entry format:
 - **Root cause:** Assumed a top-level import and a later dynamic import return the same instance, without checking what resetting the module registry does to singletons.
 - **Rule:** When a test resets modules and re-imports the code under test, also re-import every singleton the test fills or inspects, after the code under test, and assert the precondition (for example that the cache returns the seeded value) before testing the behavior.
 - **Check:** For each test file that resets modules, list top-level imports of stateful modules (caches, registries, singletons) and confirm the tests use a copy imported after the reset.
+- **Seen:** 1 (pr-review, 2026-11)
+
+### L-093: Added a server-side visibility rule to one read endpoint and missed a sibling endpoint over the same data
+- **Area:** authorization, data access
+- **Pattern:** A rule hiding some records from most roles was enforced server-side in one export endpoint, which ANDed a filter onto the client's query and checked the role from the session. A second export endpoint over the same records (used by a different, admin-only UI action) still checked only that a token existed and passed the client's filter through, so any signed-in user could call it directly and read the hidden records.
+- **Root cause:** Scoped the fix to the endpoint named in the report and the UI that calls it, instead of listing every server entry point that returns the records the rule protects. Treated "only admins see the button" as if it limited who can call the endpoint.
+- **Rule:** When adding or tightening a visibility rule for a set of records, search for every server entry point that reads those records (list, export, count, aggregate, download, batch and admin-only variants) by the query or table they use, not by the caller in the report. Enforce the rule, or a stricter role gate, in each one, and test each one directly with a role the UI never shows it to.
+- **Check:** For each new server-side filter or role check in the diff, grep for other handlers that query the same data. Each one must apply the same filter or gate, or the diff must say why it is exempt.
+- **Seen:** 1 (pr-review, 2026-11)
+
+### L-094: Made a dormant UI control reachable without reviewing what it does when used
+- **Area:** React, UI state
+- **Pattern:** A filter checkbox that had never rendered (a wiring bug) was made visible as a side fix. Its change handler updated the filter but did not reset pagination, unlike the sibling control added in the same change, so users on a later page could land on an empty page after toggling it.
+- **Root cause:** Treated reviving an existing control as a pure wiring fix and assumed its behavior had already been exercised. Code that never ran in production is effectively unreviewed new code.
+- **Rule:** When a change makes previously unreachable code reachable (an unrendered control, a dead branch, a disabled flag), review and test its behavior to the same standard as new code. Give sibling controls the same conventions (page reset, validation, loading state).
+- **Check:** For each control or branch the diff makes reachable, confirm a test exercises its handler, and compare its side effects with the controls next to it.
 - **Seen:** 1 (pr-review, 2026-11)
