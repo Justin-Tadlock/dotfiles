@@ -21,7 +21,7 @@ Entry format:
 
 <!-- Promoted (removed from this file): L-007 → CLAUDE.md "Git & Branching"; L-008 → CLAUDE.md "Authorization & Data Access"; L-006 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-009 → CLAUDE.md "Authorization & Data Access"; L-013 → CLAUDE.md "Correctness & Resilience Checklist: Every writer"; L-003 → CLAUDE.md "Correctness & Resilience Checklist: Unknown is not negative"; L-011 → CLAUDE.md "Authorization & Data Access"; L-018 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-014 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-027 → CLAUDE.md "Correctness & Resilience Checklist: Defensive boundaries"; L-028 → CLAUDE.md "Correctness & Resilience Checklist: Matching pipelines"; L-004 → CLAUDE.md "Correctness & Resilience Checklist: New states reach every consumer"; L-020 → CLAUDE.md "Correctness & Resilience Checklist: Async work outlives its UI"; L-049 → CLAUDE.md "Authorization & Data Access"; L-048 → CLAUDE.md "Correctness & Resilience Checklist: Outcomes from what was confirmed"; L-016 → CLAUDE.md "Correctness & Resilience Checklist: Same equality on both sides"; L-021 → CLAUDE.md "Correctness & Resilience Checklist: Contract changes reach every client"; L-035 → CLAUDE.md "Correctness & Resilience Checklist: Lock order"; L-041 → CLAUDE.md "Correctness & Resilience Checklist: Every variant of an action"; L-046 → CLAUDE.md "Correctness & Resilience Checklist: Test isolation"; L-064 → CLAUDE.md "Correctness & Resilience Checklist: Changes across two systems"; L-068 → CLAUDE.md "Authorization & Data Access"; L-010 → CLAUDE.md "Correctness & Resilience Checklist: Guarantees held by configuration"; L-050 → CLAUDE.md "Correctness & Resilience Checklist: Operator scripts"; L-023 → reference/correctness.md "Unknown is not negative"; L-067 → reference/security.md "Rate Limiting & Abuse"; L-047 → reference/correctness.md "Errors through every hop"; L-036 → reference/correctness.md "Transaction guarantees"; L-087 → reference/correctness.md "Lock order"; L-083 → reference/correctness.md "New states reach every consumer" -->
 <!-- Merged: L-058 → L-010 (promoted); L-042 → L-036; L-056 → L-053; L-060 → L-050 (promoted); L-066 → L-023; L-034 → CLAUDE.md "Correctness & Resilience Checklist: Testability"; L-052 → correctness.md "Every writer" (promoted); L-080 → correctness.md "Lock order" (promoted) -->
-<!-- Lessons start below. Next ID: L-090 -->
+<!-- Lessons start below. Next ID: L-091 -->
 
 ### L-001: Added a parallel async path instead of reusing the existing one
 - **Area:** async, data fetching/caching
@@ -353,11 +353,11 @@ Entry format:
 
 ### L-079: Derived a test's expected result from the constant under test
 - **Area:** testing, authorization
-- **Pattern:** A table-driven test of an allow-list computed each case's expected outcome by checking membership in the same list the code reads, so adding or removing an entry changed code and expectation together and the test never failed. A mutation check that deleted the whole list passed review because it did fail, hiding that edits to the list were untested.
+- **Pattern:** A table-driven test of an allow-list computed each case's expected outcome by checking membership in the same list the code reads, so adding or removing an entry changed code and expectation together and the test never failed. A mutation check that deleted the whole list passed review because it did fail, hiding that edits to the list were untested. Later, handler tests asserted response messages by referencing the module's exported message constants, so rewording or swapping two messages still passed.
 - **Root cause:** Reused the production constant to avoid repeating the list, without asking whether the test could still detect a change to that constant.
-- **Rule:** Write expected outcomes for allow-lists, role tables and mappings as literals in the test (a `Record<Key, Expected>` over every key), never computed from the value under test. Mutation-check by adding and removing one entry, not only by deleting the rule.
-- **Check:** For each table-driven test in the diff, see whether its expected value is computed from an exported constant or function of the module under test; if so, replace it with a literal table and confirm adding one entry to the constant fails the test.
-- **Seen:** 1 (pr-review, 2026-11)
+- **Rule:** Write expected outcomes for allow-lists, role tables, mappings and user-facing messages as literals in the test (a `Record<Key, Expected>` over every key, or a literal substring of each message), never computed from or referenced through the value under test. Mutation-check by adding, removing or swapping one entry, not only by deleting the rule.
+- **Check:** For each table-driven test or response assertion in the diff, see whether its expected value is computed from or references an exported constant or function of the module under test; if so, replace it with literals and confirm changing one entry or message fails the test.
+- **Seen:** 2 (pr-review, 2026-11; pr-review, 2026-11)
 
 ### L-081: Logged raw HTTP client errors that carry request credentials
 - **Area:** security, logging, external systems
@@ -413,4 +413,12 @@ Entry format:
 - **Root cause:** Treated the rejection of `Promise.all` as the end of the work, without noticing that it does not cancel or wait for the remaining tasks.
 - **Rule:** When parallel tasks share a resource whose lifetime the caller controls, wait for every task to settle (`Promise.allSettled`, then rethrow the first failure) and give the tasks an abort signal they check before each use of the resource. Test a failure in one task while another is still in flight, and assert nothing touches the resource after the caller returns.
 - **Check:** For each `Promise.all` over tasks that use a borrowed connection, client, file handle or lock, confirm the caller waits for all of them to settle and that the others stop after the first failure.
+- **Seen:** 1 (pr-review, 2026-11)
+
+### L-090: One item's permanent refusal stopped a retryable batch of independent external calls
+- **Area:** external APIs, error handling, batch operations
+- **Pattern:** A handler called an external API once per item in a loop wrapped in a single try. The first definite refusal (a 4xx for that item) ended the loop, so later items were never attempted, and since the refused item was always first, every retry stopped at the same place and the rest could never be processed. The response told the caller to retry for every failure, including ones a retry cannot fix (missing permission, invalid credentials).
+- **Root cause:** Designed "a partial failure is finished by retrying" assuming every failure is transient, without classifying each failure per item as permanent or retryable.
+- **Rule:** For a loop over independent items, catch per item. After a definite refusal for one item, record it and continue; stop early only on failures that may affect every item or may succeed later (timeouts, network errors, 5xx, rate limits). Report per-outcome counts, and suggest a retry only when a retryable failure occurred. Test a permanently refused item placed before a good one.
+- **Check:** For each loop of external calls inside one try/catch in the diff, ask whether the items are independent; if so, confirm a 4xx on one item doesn't skip the rest, and that any "retry" wording is limited to retryable failures.
 - **Seen:** 1 (pr-review, 2026-11)
